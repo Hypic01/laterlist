@@ -22,20 +22,45 @@ const baseProps = {
   onBack: vi.fn(),
   onMove: vi.fn(),
   onDismiss: vi.fn(),
+  onDone: vi.fn(),
   onToast: vi.fn(),
 };
 
 describe("VideoDetail M4 actions", () => {
-  it("always shows Learn, TLDR, and the free summary meter", () => {
+  it("shows click-to-play, local watched state, and the external fallback", () => {
     const html = renderToStaticMarkup(React.createElement(VideoDetail, {
       ...baseProps,
       me: { plan: "free", isAdmin: false, summariesUsed: 2, summaryQuota: 100 },
     }));
 
+    expect(html).toContain('aria-label="Play &quot;A useful video&quot; here"');
+    expect(html).toContain("Play here");
+    expect(html).not.toContain("<iframe");
+    expect(html).toContain("Mark watched");
+    expect(html).toContain("Your YouTube Watch Later stays unchanged.");
     expect(html).toContain("Learn</button>");
-    expect(html).toContain("TL;DR</button>");
-    expect(html).toContain("2 of 100 TL;DRs used this month");
-    expect(html).toContain("YouTube</a>");
+    expect(html).toContain('aria-label="TL;DR. 2 of 100 TL;DRs used this month"');
+    expect(html).toContain('class="detail__quota"');
+    expect(html).toContain("2/100");
+    expect(html).toContain("Open on YouTube</a>");
+    expect(html).toContain("Not interested</button>");
+    expect(html).not.toContain(">Dismiss</button>");
+  });
+
+  it("starts one privacy-enhanced inline player for a play intent", () => {
+    const html = renderToStaticMarkup(React.createElement(VideoDetail, {
+      ...baseProps,
+      intent: "play",
+      me: { plan: "free", isAdmin: false, summariesUsed: 2, summaryQuota: 100 },
+    }));
+
+    expect(html.match(/<iframe/g)).toHaveLength(1);
+    expect(html).toContain("https://www.youtube-nocookie.com/embed/abc12345678");
+    expect(html).toContain("autoplay=1");
+    expect(html).toContain("playsinline=1");
+    expect(html).toContain('title="YouTube player for &quot;A useful video&quot;"');
+    expect(html).toContain('referrerPolicy="strict-origin-when-cross-origin"');
+    expect(html).toContain('allowfullscreen=""');
   });
 
   it("does not show a free meter for Pro", () => {
@@ -46,6 +71,6 @@ describe("VideoDetail M4 actions", () => {
 
     expect(html).toContain("Learn</button>");
     expect(html).toContain("TL;DR</button>");
-    expect(html).not.toContain("TL;DRs used this month");
+    expect(html).not.toContain("detail__quota");
   });
 });

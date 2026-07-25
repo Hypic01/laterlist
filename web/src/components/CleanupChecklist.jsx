@@ -23,14 +23,16 @@ export default function CleanupChecklist() {
               <td>
                 {v.status === "done"
                   ? <span className="pill pill--done"><CheckIcon size={12} /> done</span>
-                  : <span className="pill pill--dismissed"><XIcon size={12} /> dismissed</span>}
+                  : <span className="pill pill--dismissed"><XIcon size={12} /> not interested</span>}
               </td>
               <td><a href={`https://www.youtube.com/watch?v=${v.id}`} target="_blank"
                 rel="noreferrer">{v.title}</a></td>
               <td>{v.channel}</td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan="3">nothing dealt with yet. Mark videos done or dismiss them from the board</td></tr>}
+          {rows.length === 0 && (
+            <tr><td colSpan="3">nothing cleared yet. Mark videos watched or not interested from the board</td></tr>
+          )}
         </tbody>
       </table>
     </div>

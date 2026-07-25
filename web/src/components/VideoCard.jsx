@@ -1,6 +1,15 @@
 import React, { useState } from "react";
 import { formatDuration } from "../lib.js";
-import { SparklesIcon, XIcon, MoreIcon, CheckIcon, ExternalIcon, LearnIcon, LockIcon } from "./icons.jsx";
+import {
+  CheckIcon,
+  ExternalIcon,
+  LearnIcon,
+  LockIcon,
+  MoreIcon,
+  PlayIcon,
+  SparklesIcon,
+  XIcon,
+} from "./icons.jsx";
 
 const CATEGORIES = ["learn", "watch", "music", "entertainment", "outdated"];
 
@@ -12,11 +21,11 @@ export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDeta
   const ytUrl = `https://www.youtube.com/watch?v=${video.id}`;
   return (
     <article className="card">
-      <button className="card__thumbwrap" onClick={() => onOpenDetail?.(video)}
-        aria-label={`View details for "${video.title}"`}>
+      <button className="card__thumbwrap" onClick={() => onOpenDetail?.(video, "play")}
+        aria-label={`Play "${video.title}" here`}>
         <img className="card__thumb" src={thumb} alt="" loading="lazy"
           onError={() => { if (!fallback) setFallback(true); }} />
-        <div className="card__open"><span>View details</span></div>
+        <div className="card__open"><span><PlayIcon size={13} /> Play here</span></div>
         {video.duration_seconds != null && (
           <span className="card__duration">{formatDuration(video.duration_seconds)}</span>
         )}
