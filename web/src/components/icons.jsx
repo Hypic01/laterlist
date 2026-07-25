@@ -63,6 +63,12 @@ export const PauseIcon = p => (
   </Icon>
 )
 
+export const PlayIcon = p => (
+  <Icon {...p}>
+    <path d="m7 4 13 8-13 8Z" />
+  </Icon>
+)
+
 export const XIcon = p => (
   <Icon {...p}>
     <path d="M18 6 6 18" />

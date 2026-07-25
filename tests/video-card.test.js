@@ -23,8 +23,10 @@ const baseProps = {
 };
 
 describe("VideoCard face", () => {
-  it("surfaces TL;DR and Learn on the card and keeps Done off the face", () => {
+  it("plays in Laterlist from the thumbnail and keeps Done off the face", () => {
     const html = renderToStaticMarkup(React.createElement(VideoCard, { ...baseProps, freePlan: false }));
+    expect(html).toContain('aria-label="Play &quot;A very good video&quot; here"');
+    expect(html).toContain("Play here");
     expect(html).toContain("TL;DR");
     expect(html).toContain("Learn");
     // Done now lives in the kebab menu as "Remove · watched it".

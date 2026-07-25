@@ -3,9 +3,11 @@ import * as api from "../api.js";
 import { formatDuration, parseTopics } from "../lib.js";
 import {
   ArrowLeftIcon,
+  CheckIcon,
   ExternalIcon,
   LearnIcon,
   LockIcon,
+  PlayIcon,
   SparklesIcon,
   SummaryIcon,
   XIcon,
@@ -37,6 +39,7 @@ export default function VideoDetail({
   onBack,
   onMove,
   onDismiss,
+  onDone,
   onToast,
   onSummaryUsed,
   onLearn,
@@ -45,6 +48,8 @@ export default function VideoDetail({
   const [detailLoading, setDetailLoading] = useState(true);
   const [detailError, setDetailError] = useState("");
   const [fallback, setFallback] = useState(false);
+  const [playing, setPlaying] = useState(intent === "play");
+  const [doneState, setDoneState] = useState("idle");
   const [summary, setSummary] = useState(null);
   const [summaryState, setSummaryState] = useState("idle");
   const [summaryError, setSummaryError] = useState("");
@@ -53,6 +58,7 @@ export default function VideoDetail({
   const intentDoneRef = useRef(false);
   const upgradeCardRef = useRef(null);
   const backRef = useRef(null);
+  const playerRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -60,6 +66,8 @@ export default function VideoDetail({
     setDetailLoading(true);
     setDetailError("");
     setFallback(false);
+    setPlaying(intent === "play");
+    setDoneState("idle");
     setSummary(null);
     setSummaryState("idle");
     setSummaryError("");
@@ -78,7 +86,7 @@ export default function VideoDetail({
       },
     );
     return () => { active = false; };
-  }, [preview.id]);
+  }, [preview.id, intent]);
 
   // Read inside the trap effect without re-running it: keying the effect on upgradeBusy
   // would tear down and rebuild the trap the moment Upgrade is pressed, yanking focus
@@ -135,6 +143,10 @@ export default function VideoDetail({
     };
   }, [upgradeOpen]);
 
+  useEffect(() => {
+    if (playing) playerRef.current?.focus();
+  }, [playing, preview.id]);
+
   const summaryUsed = Number(me.summariesUsed) || 0;
   const summaryQuota = Number(me.summaryQuota) || 100;
   const freePlan = me.plan !== "pro" && !me.isAdmin;
@@ -143,6 +155,7 @@ export default function VideoDetail({
   const RowIcon = rowMeta?.icon;
   const thumb = `https://i.ytimg.com/vi/${video.id}/${fallback ? "hqdefault" : "maxresdefault"}.jpg`;
   const ytUrl = `https://www.youtube.com/watch?v=${video.id}`;
+  const embedUrl = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(video.id)}?autoplay=1&playsinline=1&rel=0`;
 
   const meta = [
     video.channel,
@@ -236,11 +249,24 @@ export default function VideoDetail({
     onBack();
   };
 
+  const markWatched = async () => {
+    if (!onDone || doneState !== "idle") return;
+    setDoneState("saving");
+    try {
+      await onDone(video.id);
+      setDoneState("done");
+    } catch (error) {
+      setDoneState("idle");
+      onToast?.(error.message || "The video could not be marked watched.");
+    }
+  };
+
   const summaryButtonLabel = summaryState === "fetching"
     ? "Fetching the transcript…"
     : summaryState === "summarizing"
       ? "Summarizing…"
       : "TL;DR";
+  const summaryUsageLabel = `${summaryUsed.toLocaleString()} of ${summaryQuota.toLocaleString()} TL;DRs used this month`;
 
   return (
     <section className="detail" style={{ "--row-tint": rowMeta?.tint }}>
@@ -250,9 +276,37 @@ export default function VideoDetail({
         </button>
       </header>
 
-      <div className="detail__hero">
-        <img className="detail__thumb" src={thumb} alt=""
-          onError={() => { if (!fallback) setFallback(true); }} />
+      <div className={`detail__hero${playing ? " detail__hero--playing" : ""}`}>
+        {playing ? (
+          <iframe
+            ref={playerRef}
+            className="detail__player"
+            src={embedUrl}
+            title={`YouTube player for "${video.title}"`}
+            tabIndex={0}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        ) : (
+          <button className="detail__poster" onClick={() => setPlaying(true)}
+            aria-label={`Play "${video.title}" here`}>
+            <img className="detail__thumb" src={thumb} alt=""
+              onError={() => { if (!fallback) setFallback(true); }} />
+            <span className="detail__play"><PlayIcon size={19} /> Play here</span>
+          </button>
+        )}
+      </div>
+      <div className="detail__playerbar">
+        <p>
+          {playing ? "Playing inside Laterlist." : "Watch without leaving Laterlist."}
+          <span>Mark watched hides it from this board. Your YouTube Watch Later stays unchanged.</span>
+        </p>
+        <button className="btn btn--ghost" onClick={markWatched}
+          disabled={doneState !== "idle"}>
+          <CheckIcon size={14} />
+          {doneState === "saving" ? "Marking…" : doneState === "done" ? "Marked watched" : "Mark watched"}
+        </button>
       </div>
 
       <div className="detail__head">
@@ -279,19 +333,19 @@ export default function VideoDetail({
         <button className="btn btn--primary" onClick={learn}>
           {freePlan ? <LockIcon size={14} /> : <LearnIcon size={15} />} Learn
         </button>
-        <div className="detail__summary-action">
-          <button className="btn btn--ghost" onClick={loadSummary}
-            disabled={detailLoading || SUMMARY_BUSY.has(summaryState)}>
-            <SummaryIcon size={15} /> {summaryButtonLabel}
-          </button>
+        <button className="btn btn--ghost detail__summary-button" onClick={loadSummary}
+          disabled={detailLoading || SUMMARY_BUSY.has(summaryState)}
+          aria-label={freePlan ? `${summaryButtonLabel}. ${summaryUsageLabel}` : undefined}
+          title={freePlan ? summaryUsageLabel : undefined}>
+          <SummaryIcon size={15} /> {summaryButtonLabel}
           {freePlan ? (
-            <span className="detail__meter">
-              {summaryUsed.toLocaleString()} of {summaryQuota.toLocaleString()} TL;DRs used this month
+            <span className="detail__quota" aria-hidden="true">
+              {summaryUsed.toLocaleString()}/{summaryQuota.toLocaleString()}
             </span>
           ) : null}
-        </div>
+        </button>
         <a className="btn btn--ghost" href={ytUrl} target="_blank" rel="noreferrer">
-          <ExternalIcon size={15} /> YouTube
+          <ExternalIcon size={15} /> Open on YouTube
         </a>
         <div className="topbar__spacer" />
         <select defaultValue="" onChange={move} aria-label="Move to another row" className="select detail__move">
@@ -300,7 +354,9 @@ export default function VideoDetail({
             <option key={category} value={category}>{category}</option>
           ))}
         </select>
-        <button className="btn btn--ghost" onClick={dismiss}><XIcon size={14} /> Dismiss</button>
+        <button className="btn btn--ghost" onClick={dismiss}>
+          <XIcon size={14} /> Not interested
+        </button>
       </div>
 
       {summaryError ? <div className="detail__error" role="alert">{summaryError}</div> : null}
