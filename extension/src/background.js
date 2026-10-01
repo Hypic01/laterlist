@@ -34,6 +34,7 @@ function publish(message) {
 
 const controller = createSyncController({
   tabs: chrome.tabs,
+  windows: chrome.windows,
   scripting: chrome.scripting,
   storage: chrome.storage,
   alarms: chrome.alarms,
@@ -51,6 +52,7 @@ const controller = createSyncController({
 const transcriptController = createTranscriptController({
   fetch: globalThis.fetch.bind(globalThis),
   tabs: chrome.tabs,
+  windows: chrome.windows,
   scripting: chrome.scripting,
 });
 

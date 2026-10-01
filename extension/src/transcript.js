@@ -4,6 +4,7 @@ import {
   parseTimedtext,
   pickCaptionTrack,
 } from "../../collector/captions.js";
+import { openBackgroundTab } from "./tabs.js";
 
 const VIDEO_ID_RE = /^[A-Za-z0-9_-]{6,32}$/;
 const DEFAULT_TAB_TIMEOUT_MS = 20000;
@@ -201,6 +202,7 @@ export const runTranscriptProbe = async (arg) => {
 export function createTranscriptController({
   fetch: fetchImpl = globalThis.fetch,
   tabs,
+  windows = null,
   scripting,
   extractPlayerResponseImpl = extractPlayerResponse,
   pickCaptionTrackImpl = pickCaptionTrack,
@@ -307,7 +309,7 @@ export function createTranscriptController({
     // muted player into fetching captions and captures its response.
     let tab = null;
     try {
-      tab = await tabs.create({ url: watchUrl(normalizedId), active: false });
+      tab = await openBackgroundTab({ tabs, windows }, watchUrl(normalizedId));
       if (!tab?.id) {
         throw new TranscriptFetchError("TAB_OPEN_FAILED", "YouTube could not be opened for captions.");
       }
