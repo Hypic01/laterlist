@@ -6,6 +6,15 @@ import ImportPanel from "./ImportPanel.jsx";
 
 const ACTIVE_JOB = new Set(["queued", "running", "awaiting_batch"]);
 
+// Plain words for why the extension's last fetch stopped.
+const FETCH_ERRORS = {
+  TAB_CLOSED: "The YouTube tab closed before it finished. Leave it open this time.",
+  SIGNED_OUT: "You're signed out of YouTube in this browser. Sign in there, then try again.",
+  INCOMPLETE_COLLECTION: "YouTube stopped loading partway through your list.",
+  NO_VIDEOS: "Your Watch Later looks empty.",
+};
+const fetchErrorText = (e) => FETCH_ERRORS[e?.code] || e?.error || "The fetch didn't finish.";
+
 // busy = the app is working on this step (spinner). An active step that is
 // waiting on the user (a button) shows a plain ring instead.
 function Step({ n, state, busy = false, title, children }) {
@@ -79,7 +88,7 @@ function TasteChips({ me }) {
 
 export default function SetupScreen({
   me, extension, collection, job, extensionBusy = false, extensionSyncing = false,
-  onConnect, onSync, onImported, onConnectExtension, onManual,
+  onConnect, onSync, onImported, onConnectExtension, onManual, fetchError = null,
 }) {
   const present = Boolean(extension?.present);
   const connected = present && extension.connected && !extension.mismatch;
@@ -120,9 +129,12 @@ export default function SetupScreen({
   ) : collection || extensionSyncing ? (
     <p>{count ? `${count.toLocaleString()} videos so far` : "Opening your Watch Later…"}</p>
   ) : connected ? (
-    <button className="btn btn--primary" type="button" onClick={onSync}>
-      <SyncIcon size={15} /> Fetch my Watch Later
-    </button>
+    <>
+      {fetchError ? <p className="setup__fetch-error" role="alert">{fetchErrorText(fetchError)}</p> : null}
+      <button className="btn btn--primary" type="button" onClick={onSync}>
+        <SyncIcon size={15} /> {fetchError ? "Try again" : "Fetch my Watch Later"}
+      </button>
+    </>
   ) : null;
 
   return (

@@ -67,6 +67,12 @@ describe("SetupScreen", () => {
     expect(html).not.toContain("Add to Chrome");
     expect(html).not.toContain("Copy the collector");
   });
+  it("says why the last fetch stopped and offers to try again", () => {
+    const html = render({ extension: ext({ present: true, connected: true }),
+      fetchError: { code: "TAB_CLOSED", error: "The YouTube tab was closed before sync finished." } });
+    expect(html).toContain("The YouTube tab closed before it finished");
+    expect(html).toContain("Try again");
+  });
   it("shows the last failure under the checklist", () => {
     const html = render({ extension: ext({ present: true, connected: true }),
       job: { id: 2, state: "failed", error: "Sorting is temporarily paused." } });

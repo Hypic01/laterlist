@@ -575,6 +575,7 @@ button { font-family: inherit; cursor: pointer; }
 .setup__taste h3 { font-size: 15px; font-weight: 600; }
 .setup__taste p { color: var(--muted); font-size: 14px; margin-top: var(--space-1); }
 .setup .onboard__chips { margin-top: var(--space-4); }
+.setup__fetch-error { color: var(--destructive) !important; }
 .setup__taste-error { margin-top: var(--space-3); color: var(--destructive); font-size: 14px; }
 .setup__taste-error button { padding: 0; border: 0; background: none; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .onboard__actions { display: flex; gap: var(--space-3); margin-top: var(--space-5); align-items: center; }

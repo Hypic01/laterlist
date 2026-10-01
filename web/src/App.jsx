@@ -454,6 +454,12 @@ export default function App() {
   // First run: the moment the extension shows up, connect it and start the
   // sync, so a new user never has to find two more buttons.
   const autoConnectRef = useRef(false);
+  // On the setup screen, a manual Connect or Reconnect also starts the fetch,
+  // so the user never has to find a second button.
+  const connectAndSync = useCallback(async () => {
+    const created = await connectExtension();
+    if (created) await syncExtension();
+  }, [connectExtension, syncExtension]);
   useEffect(() => {
     if (!me) return;
     const connected = Boolean(extensionState.status?.connected);
@@ -632,9 +638,10 @@ export default function App() {
         ) : onSetup ? (
           <SetupScreen me={me} extension={extension} collection={extensionState.progress} job={job}
             extensionBusy={extensionBusy} extensionSyncing={extensionSyncing}
-            onConnect={connectExtension} onSync={syncExtension}
+            onConnect={connectAndSync} onSync={syncExtension}
             onImported={onImported} onConnectExtension={connectExtension}
-            onManual={() => { setManualImport(true); setView("import"); }} />
+            onManual={() => { setManualImport(true); setView("import"); }}
+            fetchError={extensionState.status?.lastResult?.error ? extensionState.status.lastResult : null} />
         ) : boardEmpty ? (
           <div className="empty-hero">
             <span className="empty-hero__icon"><UploadIcon size={30} /></span>
