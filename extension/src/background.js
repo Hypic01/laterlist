@@ -69,7 +69,9 @@ function dispatchCommand(message, sender, external = false) {
   }
   if (message?.type === WLL_SET_TOKEN) return controller.setConnection(message);
   if (message?.type === WLL_GET_STATUS) return controller.getStatus();
-  if (message?.type === WLL_SYNC) return controller.start({ mode: message.mode });
+  if (message?.type === WLL_SYNC) {
+    return controller.start({ mode: message.mode, promoteFirstSync: message.promoteFirstSync !== false });
+  }
   if (external && message?.type === WLL_FETCH_TRANSCRIPT) {
     return transcriptController.fetchTranscript(message.videoId);
   }

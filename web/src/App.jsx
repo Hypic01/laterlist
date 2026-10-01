@@ -446,7 +446,10 @@ export default function App() {
       progress: { phase: "opening", count: 0, expectedTotal: null },
     }));
     try {
-      const response = await extensionClient.sync("delta");
+      // A fresh extension connection has no sync history and would read the
+      // whole playlist; only do that when the library is actually empty.
+      const libraryEmpty = !me || Object.values(me.counts).reduce((a, b) => a + b, 0) === 0;
+      const response = await extensionClient.sync("delta", { promoteFirstSync: libraryEmpty });
       if (response?.started === false && !response.error) return;
       if (!response?.started) throw new Error(response?.error || "The extension could not start the sync.");
     } catch (error) {
@@ -457,7 +460,7 @@ export default function App() {
       }));
       showToast(error.message || "The extension could not start the sync.");
     }
-  }, [extensionClient, showToast]);
+  }, [extensionClient, me, showToast]);
 
   // First run: the moment the extension shows up, connect it and start the
   // sync, so a new user never has to find two more buttons.

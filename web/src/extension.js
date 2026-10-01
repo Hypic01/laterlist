@@ -130,8 +130,8 @@ export function createExtensionClient({
       return send(WLL_SET_TOKEN, { token, apiUrl, email });
     },
 
-    sync(mode = "delta") {
-      return send(WLL_SYNC, { mode });
+    sync(mode = "delta", { promoteFirstSync = true } = {}) {
+      return send(WLL_SYNC, { mode, promoteFirstSync });
     },
 
     async fetchTranscript(videoId) {
