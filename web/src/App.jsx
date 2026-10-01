@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "./api.js";
-import { SORTS, parseTopics, timeAgo, absoluteTime } from "./lib.js";
+import { SORTS, parseTopics, timeAgo, absoluteTime, isFirstRun, shouldAutoConnect } from "./lib.js";
 import { hasSession, signInWithGoogle, signInDev, isDevAuth, onAuthChange } from "./auth.js";
 import Row from "./components/Row.jsx";
 import CategoryView from "./components/CategoryView.jsx";
@@ -10,6 +10,7 @@ import JobProgress from "./components/JobProgress.jsx";
 import UpgradeBand from "./components/UpgradeBand.jsx";
 import Settings from "./components/Settings.jsx";
 import VideoDetail from "./components/VideoDetail.jsx";
+import SetupScreen from "./components/SetupScreen.jsx";
 import {
   availabilitySummary,
   createExtensionClient,
@@ -48,6 +49,13 @@ const ACTIVE_STATES = new Set(["queued", "running", "awaiting_batch"]);
 
 function AuthGate() {
   const [email, setEmail] = useState("");
+  // Landing CTAs link to /app?signin=1: go straight to Google, no extra card.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (!params.has("signin")) return;
+    history.replaceState(null, "", location.pathname);
+    if (!isDevAuth) void signInWithGoogle();
+  }, []);
   return (
     <div className="authgate">
       <div className="authgate__card">
@@ -98,6 +106,7 @@ export default function App() {
   });
   const [extensionBusy, setExtensionBusy] = useState(false);
   const pollRef = useRef(null);
+  const lastProcessedRef = useRef(0);
   const toastRef = useRef(null);
   const failNoticeRef = useRef(null);
   const doneNoticeRef = useRef(null);
@@ -198,17 +207,24 @@ export default function App() {
   useEffect(() => {
     clearInterval(pollRef.current);
     if (!job || !ACTIVE_STATES.has(job.state)) return;
+    lastProcessedRef.current = Number(job.processed) || 0;
     pollRef.current = setInterval(async () => {
       const { job: fresh } = await api.getCurrentJob().catch(() => ({ job: null }));
       if (fresh && ACTIVE_STATES.has(fresh.state)) activeSeenRef.current.add(fresh.id);
       setJob(fresh);
+      // Rows fill as chunks commit, so a new user sees videos while the rest sort.
+      const processed = Number(fresh?.processed) || 0;
+      if (fresh && ACTIVE_STATES.has(fresh.state) && processed > lastProcessedRef.current) {
+        lastProcessedRef.current = processed;
+        void reload().catch(() => {});
+      }
       // Completion and failure handling live in the announcement effects
       // below, so a job that finishes faster than one poll interval — or
       // inside the very request that started it — is treated identically.
       if (fresh && !ACTIVE_STATES.has(fresh.state)) clearInterval(pollRef.current);
     }, 3000);
     return () => clearInterval(pollRef.current);
-  }, [job?.id, job?.state]);
+  }, [job?.id, job?.state, reload]);
 
   // Announce a failed job's reason exactly once per job — including jobs that
   // failed before this client ever saw them active. A batch submit can be
@@ -240,6 +256,7 @@ export default function App() {
     let active = true;
     let port = null;
     let reconnectTimer = null;
+    let presentNow = false;
 
     const payloadOf = (message) => message?.payload || message || {};
     const onPortMessage = (message) => {
@@ -317,10 +334,11 @@ export default function App() {
       }
     };
 
-    const detect = async () => {
-      setExtensionState((current) => ({ ...current, checking: true }));
+    const detect = async ({ quiet = false } = {}) => {
+      if (!quiet) setExtensionState((current) => ({ ...current, checking: true }));
       const found = await extensionClient.detect();
       if (!active) return;
+      presentNow = found.present;
       if (!found.present) {
         setExtensionState({ checking: false, present: false, version: null, status: null, progress: null });
         return;
@@ -347,9 +365,26 @@ export default function App() {
       }
     };
 
+    // A fresh install happens in the Web Store tab. When the user comes back,
+    // look again (a new install can take a moment to answer).
+    let redetecting = false;
+    const onVisible = async () => {
+      if (!active || presentNow || redetecting || document.visibilityState !== "visible") return;
+      redetecting = true;
+      for (let attempt = 0; attempt < 3 && active && !presentNow; attempt++) {
+        if (attempt) await new Promise((resolve) => setTimeout(resolve, 1500));
+        await detect({ quiet: true });
+      }
+      redetecting = false;
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
     void detect();
     return () => {
       active = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
       clearTimeout(reconnectTimer);
       try { port?.disconnect(); } catch { /* The extension may already be gone. */ }
     };
@@ -409,12 +444,35 @@ export default function App() {
     }
   }, [extensionClient, showToast]);
 
+  // First run: the moment the extension shows up, connect it and start the
+  // sync, so a new user never has to find two more buttons.
+  const autoConnectRef = useRef(false);
+  useEffect(() => {
+    if (!me) return;
+    const connected = Boolean(extensionState.status?.connected);
+    const connectedEmail = extensionState.status?.email?.trim().toLowerCase() || "";
+    const ok = shouldAutoConnect({
+      firstRun: isFirstRun(me.counts),
+      checking: extensionState.checking,
+      present: extensionState.present,
+      connected,
+      mismatch: Boolean(connected && connectedEmail && connectedEmail !== me.email.trim().toLowerCase()),
+      jobActive: Boolean(job && ACTIVE_STATES.has(job.state)),
+      attempted: autoConnectRef.current,
+    });
+    if (!ok) return;
+    autoConnectRef.current = true;
+    void (async () => {
+      const created = await connectExtension();
+      if (created) await syncExtension();
+    })();
+  }, [me, extensionState.checking, extensionState.present, extensionState.status, job, connectExtension, syncExtension]);
+
   if (authed === null) return <div className="loading">loading…</div>;
   if (!authed) return <AuthGate />;
   if (!me || !board) return <div className="loading">loading…</div>;
 
   const totalVideos = Object.values(me.counts).reduce((a, b) => a + b, 0);
-  const needsQuiz = !me.hasTaste && totalVideos === 0;
   const waitingCount = ACTIVE_STATES.has(job?.state) ? 0 : me.counts.unscanned;
   // The importer caps storage AT the plan cap, so >= fires exactly when full.
   const atCap = me.plan !== "pro" && totalVideos >= me.videoCap;
@@ -505,6 +563,8 @@ export default function App() {
   );
 
   const boardEmpty = totalVideos === 0;
+  // A new user sees the setup checklist (with progress) instead of an empty board.
+  const onSetup = !focus && view === "board" && isFirstRun(me.counts);
 
   return (
     <div className="app">
@@ -529,7 +589,7 @@ export default function App() {
         </button>
       </header>
 
-      {extensionState.progress || (job && ACTIVE_STATES.has(job.state)) ? (
+      {!onSetup && (extensionState.progress || (job && ACTIVE_STATES.has(job.state))) ? (
         <JobProgress job={job} collection={extensionState.progress} onCancelled={reload} />
       ) : null}
       {toast && <div className="toast" role="status" aria-live="polite">{toast}</div>}
@@ -543,8 +603,6 @@ export default function App() {
             onDismiss={dismiss} onDone={done}
             onToast={showToast} onSummaryUsed={onSummaryUsed}
             onLearn={() => showToast("Learn sessions are coming soon.")} />
-        ) : needsQuiz && view !== "import" && view !== "settings" ? (
-          <Onboarding onDone={() => reload().then(() => setView("import"))} />
         ) : view === "settings" ? (
           <Settings me={me} onBack={() => setView("board")} onToast={showToast}
             onRetakeQuiz={() => { api.saveTaste({ interests: [], note: "" }); setView("quiz"); }}
@@ -564,6 +622,11 @@ export default function App() {
             onMove={move} onDismiss={dismiss} onDone={done} onOpenDetail={openDetail}
             onTldr={cardTldr}
             onBack={() => { setView("board"); setQuery(""); }} />
+        ) : onSetup ? (
+          <SetupScreen me={me} extension={extension} collection={extensionState.progress} job={job}
+            extensionBusy={extensionBusy} extensionSyncing={extensionSyncing}
+            onConnect={connectExtension} onSync={syncExtension}
+            onImported={onImported} onConnectExtension={connectExtension} />
         ) : boardEmpty ? (
           <div className="empty-hero">
             <span className="empty-hero__icon"><UploadIcon size={30} /></span>
