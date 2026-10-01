@@ -12,6 +12,7 @@ import { createAuth, supabaseVerifier, fakeVerifier } from "./auth.js";
 import { createLlm, createFakeLlm } from "./anthropic.js";
 import { createHaikuClassifier } from "./classify.js";
 import { createJevClassifier, createFakeJevFetch } from "./jev.js";
+import { createBackground } from "./background.js";
 import { createImporter } from "./importer.js";
 import { createWorker } from "./worker.js";
 import { createBilling } from "./billing.js";
@@ -99,6 +100,10 @@ export async function buildApp(env = process.env) {
     ? createWorker({ db, llm, classifier, config, log: (m) => console.log(`[worker] ${m}`) })
     : null;
   const mentor = llm ? createMentor({ llm, model: config.classifyModel }) : null;
+  // Serverless has no interval worker: sorting runs in background invocations.
+  const background = worker && config.serverless
+    ? createBackground({ worker, db, config, log: (m) => console.log(`[background] ${m}`) })
+    : null;
   const transcripts = createTranscriptFetcher();
   let billing = null;
   if (config.polarAccessToken && config.polarWebhookSecret
@@ -113,6 +118,7 @@ export async function buildApp(env = process.env) {
     auth,
     importer,
     worker,
+    background,
     billing,
     mentor,
     transcripts,

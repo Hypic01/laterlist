@@ -135,7 +135,11 @@ export function createFakeJevFetch() {
 // request stay short (3 attempts) to fit the serverless poll budget.
 export function createJevClassifier({
   apiKey, model = JEV_DEFAULT_MODEL, concurrency = 16, chunkSize = 100, fetchImpl = fetch, sleep = defaultSleep,
+  requestTimeoutMs = 10000,
 }) {
+  // A hung request must not outlive the function's time limit, or the run is
+  // killed before it can save or hand off. A timed-out video retries later.
+  const timedFetch = (url, init) => fetchImpl(url, { ...init, signal: AbortSignal.timeout(requestTimeoutMs) });
   return {
     supportsBatch: false,
     chunkSize,
@@ -147,7 +151,7 @@ export function createJevClassifier({
           const v = videos[next++];
           try {
             const body = await callJev(buildJevRequest(v, { model, tasteProfile, examples }), {
-              apiKey, fetchImpl, maxAttempts: 3,
+              apiKey, fetchImpl: timedFetch, maxAttempts: 3,
               // Cap every wait, Retry-After included: a chunk must fit the serverless poll budget.
               sleep: (ms) => sleep(Math.min(ms, 2000)),
             });
