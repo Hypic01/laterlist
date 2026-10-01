@@ -139,6 +139,9 @@ export function createJevClassifier({
   return {
     supportsBatch: false,
     chunkSize,
+    // The first chunk of a job is one parallel round, so a new user's board
+    // gets its first videos within seconds instead of after a full chunk.
+    firstChunkSize: concurrency,
     async classifyChunk(videos, { tasteProfile = {}, examples = [] } = {}) {
       const results = [];
       let input = 0, costUsd = 0, next = 0, lastError = null;
