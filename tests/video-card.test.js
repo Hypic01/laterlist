@@ -19,26 +19,22 @@ const baseProps = {
   onDone: () => {},
   onOpenDetail: () => {},
   onTldr: () => {},
-  onLearn: () => {},
 };
 
 describe("VideoCard face", () => {
   it("plays in Laterlist from the thumbnail and keeps Done off the face", () => {
-    const html = renderToStaticMarkup(React.createElement(VideoCard, { ...baseProps, freePlan: false }));
+    const html = renderToStaticMarkup(React.createElement(VideoCard, baseProps));
     expect(html).toContain('aria-label="Play &quot;A very good video&quot; here"');
     expect(html).toContain("Play here");
     expect(html).toContain("TL;DR");
-    expect(html).toContain("Learn");
     // Done now lives in the kebab menu as "Remove · watched it".
     expect(html).not.toContain(">done<");
     expect(html).not.toContain("Mark ");
   });
 
-  it("locks Learn for free users", () => {
-    const free = renderToStaticMarkup(React.createElement(VideoCard, { ...baseProps, freePlan: true }));
-    const pro = renderToStaticMarkup(React.createElement(VideoCard, { ...baseProps, freePlan: false }));
-    // The lock icon renders only on the free card's Learn button.
-    expect(free).not.toBe(pro);
-    expect(free).toContain("Learn");
+  it("keeps Learn off the card face while it's still coming soon", () => {
+    // Learn lives in the video detail view only; the card shows TL;DR and the menu.
+    const html = renderToStaticMarkup(React.createElement(VideoCard, baseProps));
+    expect(html).not.toContain("Learn");
   });
 });

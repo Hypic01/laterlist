@@ -22,7 +22,6 @@ import {
 import {
   LearnIcon, EyeIcon, MusicIcon, GamepadIcon, ArchiveIcon, BrandMark,
   SettingsIcon, UploadIcon, GoogleIcon, SyncIcon,
-  SunIcon, MoonIcon,
 } from "./components/icons.jsx";
 
 const ROWS = [
@@ -46,29 +45,6 @@ const DURATIONS = [
 ];
 
 const ACTIVE_STATES = new Set(["queued", "running", "awaiting_batch"]);
-
-// Dark is the default; the toggle flips <html data-theme> and remembers the choice.
-function ThemeToggle() {
-  const [light, setLight] = useState(
-    () => typeof document !== "undefined" && document.documentElement.dataset.theme === "light"
-  );
-  const toggle = () => {
-    const next = !light;
-    setLight(next);
-    const root = document.documentElement;
-    if (next) root.dataset.theme = "light"; else delete root.dataset.theme;
-    try { localStorage.setItem("laterlist:theme", next ? "light" : "dark"); } catch { /* private mode */ }
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", next ? "#D9D9D9" : "#191919");
-  };
-  return (
-    <button className="btn btn--ghost" onClick={toggle}
-      aria-label={light ? "Switch to dark theme" : "Switch to light theme"}
-      title={light ? "Switch to dark" : "Switch to light"}>
-      {light ? <MoonIcon size={15} /> : <SunIcon size={15} />}
-    </button>
-  );
-}
 
 function AuthGate() {
   const [email, setEmail] = useState("");
@@ -491,34 +467,31 @@ export default function App() {
   const dismiss = async (id) => { await api.dismissVideo(id); reload(); };
   const done = async (id) => { await api.markDone([id]); showToast("Marked done. It's in your History, in Settings."); reload(); };
   // Intent carries a card-level action into the detail view: "play" starts the
-  // player, "tldr" starts the summary, and "learn" triggers the Learn flow.
+  // player and "tldr" starts the summary.
   const openDetail = (video, intent = null) => {
     setFocusIntent(intent);
     setFocus(video);
   };
   const cardTldr = (video) => openDetail(video, "tldr");
-  const cardLearn = (video) => openDetail(video, "learn");
-  const freePlan = me.plan !== "pro";
   const detailRow = focus ? ROWS.find((row) => row.key === focus.category) : null;
 
+  // One quiet line of filters: length first, then topics by count. The line
+  // scrolls sideways instead of wrapping so it never grows into a wall of chips.
   const chipsBar = (
     <div className="filters">
       <div className="filters__group" role="group" aria-label="Filter by length">
-        <span className="filters__label">Length</span>
-        <div className="filters__items">
-          {DURATIONS.map((d) => (
-            <button key={d.key} className={`chip chip--duration${duration === d.key ? " chip--active" : ""}`}
-              onClick={() => setDuration(duration === d.key ? null : d.key)}
-              aria-pressed={duration === d.key}>
-              {d.label}
-            </button>
-          ))}
-        </div>
+        {DURATIONS.map((d) => (
+          <button key={d.key} className={`chip chip--duration${duration === d.key ? " chip--active" : ""}`}
+            onClick={() => setDuration(duration === d.key ? null : d.key)}
+            aria-pressed={duration === d.key}>
+            {d.label}
+          </button>
+        ))}
       </div>
       {topicCounts.length > 0 && (
-        <div className="filters__group" role="group" aria-label="Filter by topic">
-          <span className="filters__label">Topic</span>
-          <div className="filters__items">
+        <>
+          <span className="filters__divider" aria-hidden="true" />
+          <div className="filters__group" role="group" aria-label="Filter by topic">
             {topicCounts.map(([t, n]) => (
               <button key={t} className={`chip${topic === t ? " chip--active" : ""}`}
                 onClick={() => setTopic(topic === t ? null : t)} aria-pressed={topic === t}>
@@ -526,7 +499,7 @@ export default function App() {
               </button>
             ))}
           </div>
-        </div>
+        </>
       )}
     </div>
   );
@@ -540,28 +513,18 @@ export default function App() {
           <span className="brand__mark"><BrandMark size={18} /></span>
           <h1>laterlist</h1>
         </button>
-        <span className={`plan-badge plan-badge--${me.plan}`}>{me.plan}</span>
         <div className="topbar__spacer" />
-        {totalVideos > 0 && (
-          <span className="wl-stat" title="Videos sorted into your later list">
-            {me.counts.scanned.toLocaleString()} sorted
-          </span>
-        )}
         {extensionConnected ? (
-          <button className="btn btn--ghost" disabled={extensionSyncing} onClick={syncExtension}>
-            <SyncIcon size={15} /> {extensionSyncing ? "Syncing…" : "Sync"}
+          <button className="btn btn--ghost" disabled={extensionSyncing} onClick={syncExtension}
+            aria-label={extensionSyncing ? "Syncing" : "Sync"} title="Sync from YouTube">
+            <SyncIcon size={15} /> <span className="btn__label">{extensionSyncing ? "Syncing…" : "Sync"}</span>
           </button>
         ) : null}
-        <button className="btn btn--primary" onClick={() => { setFocus(null); setView("import"); }}>
+        <button className="btn btn--primary" onClick={() => { setFocus(null); setView("import"); }}
+          title={me.lastImportAt ? `Last imported ${timeAgo(me.lastImportAt)} (${absoluteTime(me.lastImportAt)})` : undefined}>
           <UploadIcon size={15} /> Import
         </button>
-        {me.lastImportAt && (
-          <span className="wl-stat" title={absoluteTime(me.lastImportAt)}>
-            Imported {timeAgo(me.lastImportAt)}
-          </span>
-        )}
-        <ThemeToggle />
-        <button className="btn btn--ghost" onClick={() => { setFocus(null); setView("settings"); }} aria-label="Settings" title="Settings">
+        <button className="btn btn--ghost btn--icon" onClick={() => { setFocus(null); setView("settings"); }} aria-label="Settings" title="Settings">
           <SettingsIcon size={15} />
         </button>
       </header>
@@ -599,7 +562,7 @@ export default function App() {
             videos={withQuery(matches(board[view]))} chips={chipsBar}
             query={query} onQuery={setQuery} sort={sort} onSort={setSort}
             onMove={move} onDismiss={dismiss} onDone={done} onOpenDetail={openDetail}
-            onTldr={cardTldr} onLearn={cardLearn} freePlan={freePlan}
+            onTldr={cardTldr}
             onBack={() => { setView("board"); setQuery(""); }} />
         ) : boardEmpty ? (
           <div className="empty-hero">
@@ -622,7 +585,7 @@ export default function App() {
                 videos={matches(board[r.key])} emptyLine={r.empty}
                 onMove={move} onDismiss={dismiss} onDone={done}
                 onOpenDetail={openDetail}
-                onTldr={cardTldr} onLearn={cardLearn} freePlan={freePlan}
+                onTldr={cardTldr}
                 onOpen={() => setView(r.key)} />
             ))}
             {job?.state === "failed" && job.error ? (
