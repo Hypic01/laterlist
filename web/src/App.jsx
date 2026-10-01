@@ -328,7 +328,9 @@ export default function App() {
     };
 
     const connectPort = () => {
-      if (!active || !extensionClient.extensionId) return;
+      // One Port at a time: a second detect (initial load racing a tab return)
+      // must not open a second subscription and double-handle sync messages.
+      if (!active || port || !extensionClient.extensionId) return;
       try {
         port = extensionClient.connectPort();
         port.onMessage.addListener(onPortMessage);
@@ -341,7 +343,13 @@ export default function App() {
       }
     };
 
-    const detect = async ({ quiet = false } = {}) => {
+    // Share an in-flight detection so overlapping callers wait for one result.
+    let detecting = null;
+    const detect = (options) => {
+      detecting ??= runDetect(options).finally(() => { detecting = null; });
+      return detecting;
+    };
+    const runDetect = async ({ quiet = false } = {}) => {
       if (!quiet) setExtensionState((current) => ({ ...current, checking: true }));
       const found = await extensionClient.detect();
       if (!active) return;
