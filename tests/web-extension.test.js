@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   availabilitySummary,
+  createExtensionClient,
   isChromiumBrowser,
   parseExtensionIds,
 } from "../web/src/extension.js";
@@ -34,5 +35,20 @@ describe("website extension helpers", () => {
     expect(availabilitySummary({ collected: 99, unavailable: 1 })).toBe(
       "99 of 100 videos were available. The other video is private or deleted.",
     );
+  });
+
+  it("tells the extension whether a first sync may become a full read", async () => {
+    const id = "abcdefghijklmnopabcdefghijklmnop";
+    const sent = [];
+    const runtime = {
+      sendMessage(_id, message, reply) {
+        sent.push(message);
+        reply(message.type === "WLL_PING" ? { ok: true } : { started: true });
+      },
+    };
+    const client = createExtensionClient({ runtime, extensionIds: [id] });
+    await client.detect();
+    await client.sync("delta", { promoteFirstSync: false });
+    expect(sent.at(-1)).toMatchObject({ mode: "delta", promoteFirstSync: false });
   });
 });
