@@ -367,6 +367,25 @@ export function createDb(q) {
       return rows.filter((r) => r.dead).length;
     },
 
+    // Bulk form of saveScanResult (same guard) — one round trip per chunk
+    // instead of one per video, which is most of a chunk's time when the
+    // database is a network hop away. Returns how many rows were written.
+    async saveScanResults(userId, results) {
+      if (!results.length) return 0;
+      const rows = results.map(({ id, category, reasoning, confidence, topics }) => ({
+        id, category, reasoning: reasoning || "", confidence: confidence ?? null, topics: topics || [],
+      }));
+      const { rows: saved } = await q.query(
+        `UPDATE videos v SET category = r.category, reasoning = r.reasoning, confidence = r.confidence,
+           topics = r.topics, classified_at = now(), status = 'scanned'
+         FROM jsonb_to_recordset($2::jsonb) AS r(id text, category text, reasoning text, confidence real, topics jsonb)
+         WHERE v.user_id = $1 AND v.video_id = r.id AND v.status = 'unscanned' AND NOT v.manual_override
+         RETURNING v.video_id`,
+        [userId, JSON.stringify(rows)]
+      );
+      return saved.length;
+    },
+
     // The idempotency guard: only unscanned, never overridden rows accept
     // classification results. Re-running a job can never stomp user actions.
     async saveScanResult(userId, videoId, { category, reasoning, confidence, topics }) {

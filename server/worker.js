@@ -60,10 +60,7 @@ export function createWorker({
   }
 
   async function applyResults(job, results, usage, { batch }) {
-    let saved = 0;
-    for (const r of results) {
-      if (await db.saveScanResult(job.user_id, r.id, r)) saved++;
-    }
+    const saved = await db.saveScanResults(job.user_id, results);
     await db.addUsage({
       userId: job.user_id,
       jobId: job.id,
@@ -90,7 +87,10 @@ export function createWorker({
       log(`job ${job.id} completed`);
       return "done";
     }
-    const chunk = await db.getUnscanned(job.user_id, Math.min(config.chunkSize, remaining));
+    // A classifier can ask for bigger chunks (Jev parallelizes within one), so
+    // the fixed per-chunk bookkeeping is paid fewer times.
+    const chunkSize = classifier.chunkSize || config.chunkSize;
+    const chunk = await db.getUnscanned(job.user_id, Math.min(chunkSize, remaining));
     if (!chunk.length) {
       await db.finishJob(job.id, "completed");
       log(`job ${job.id} completed (queue drained)`);

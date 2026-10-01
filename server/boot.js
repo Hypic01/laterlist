@@ -78,7 +78,7 @@ export async function buildApp(env = process.env) {
 
   // ---- classifier (optional: without it the app runs but imports return 503) ----
   let classifier = null;
-  const jevOpts = { model: config.jevModel, concurrency: config.jevConcurrency };
+  const jevOpts = { model: config.jevModel, concurrency: config.jevConcurrency, chunkSize: config.jevChunkSize };
   if (config.classifier === "jev" && config.openrouterApiKey && !config.fakeLlm) {
     classifier = createJevClassifier({ apiKey: config.openrouterApiKey, ...jevOpts });
   } else if (config.classifier === "jev" && (config.fakeLlm || (!isProd && !config.anthropicApiKey))) {

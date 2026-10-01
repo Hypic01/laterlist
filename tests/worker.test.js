@@ -216,7 +216,7 @@ describe("batch jobs", () => {
     let usages = 0;
     const spyDb = {
       ...db,
-      saveScanResult: (...a) => (saves++, db.saveScanResult(...a)),
+      saveScanResults: (userId, results) => ((saves += results.length), db.saveScanResults(userId, results)),
       addUsage: (...a) => (usages++, db.addUsage(...a)),
     };
     const slow = { ...inner, getBatch: async (id) => (ready ? inner.getBatch(id) : { id, processing_status: "in_progress" }) };

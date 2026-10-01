@@ -133,9 +133,12 @@ export function createFakeJevFetch() {
 // rest through classify_attempts. Throws only when nothing succeeded, so a
 // fully failed chunk takes the same path as a failed Haiku chunk. Retries per
 // request stay short (3 attempts) to fit the serverless poll budget.
-export function createJevClassifier({ apiKey, model = JEV_DEFAULT_MODEL, concurrency = 8, fetchImpl = fetch, sleep = defaultSleep }) {
+export function createJevClassifier({
+  apiKey, model = JEV_DEFAULT_MODEL, concurrency = 16, chunkSize = 100, fetchImpl = fetch, sleep = defaultSleep,
+}) {
   return {
     supportsBatch: false,
+    chunkSize,
     async classifyChunk(videos, { tasteProfile = {}, examples = [] } = {}) {
       const results = [];
       let input = 0, costUsd = 0, next = 0, lastError = null;
