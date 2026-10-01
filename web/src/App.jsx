@@ -88,6 +88,8 @@ export default function App() {
   const [board, setBoard] = useState(null);
   const [job, setJob] = useState(null);
   const [view, setView] = useState("board");
+  // Set when a new user picks "paste it in yourself" on the setup screen.
+  const [manualImport, setManualImport] = useState(false);
   const [focus, setFocus] = useState(null);
   const [focusIntent, setFocusIntent] = useState(null);
   const [query, setQuery] = useState("");
@@ -614,7 +616,7 @@ export default function App() {
           <ImportPanel onImported={onImported} extension={extension}
             onConnectExtension={connectExtension} extensionBusy={extensionBusy}
             extensionConnected={extensionConnected} onSyncExtension={syncExtension}
-            extensionSyncing={extensionSyncing} />
+            extensionSyncing={extensionSyncing} manualOpen={manualImport} />
         ) : ROWS.some((r) => r.key === view) ? (
           <CategoryView row={ROWS.find((r) => r.key === view)}
             videos={withQuery(matches(board[view]))} chips={chipsBar}
@@ -626,7 +628,8 @@ export default function App() {
           <SetupScreen me={me} extension={extension} collection={extensionState.progress} job={job}
             extensionBusy={extensionBusy} extensionSyncing={extensionSyncing}
             onConnect={connectExtension} onSync={syncExtension}
-            onImported={onImported} onConnectExtension={connectExtension} />
+            onImported={onImported} onConnectExtension={connectExtension}
+            onManual={() => { setManualImport(true); setView("import"); }} />
         ) : boardEmpty ? (
           <div className="empty-hero">
             <span className="empty-hero__icon"><UploadIcon size={30} /></span>

@@ -11,6 +11,7 @@ export default function ImportPanel({
   extensionConnected = false,
   onSyncExtension,
   extensionSyncing = false,
+  manualOpen = false,
 }) {
   const [pasted, setPasted] = useState("");
   const [error, setError] = useState(null);
@@ -167,7 +168,7 @@ export default function ImportPanel({
           </details>
         </>
       ) : canUseExtension ? (
-        <details className="importer__manual">
+        <details className="importer__manual" open={manualOpen}>
           <summary>Prefer not to install? Paste manually</summary>
           {manualImport}
         </details>

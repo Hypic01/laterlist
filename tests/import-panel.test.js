@@ -28,6 +28,11 @@ describe("ImportPanel extension priority", () => {
     expect(html).not.toContain("Sync your Watch Later</button>");
   });
 
+  it("opens the manual flow when the user already chose to paste", () => {
+    const html = renderToStaticMarkup(React.createElement(ImportPanel, { ...baseProps, manualOpen: true }));
+    expect(html).toContain('<details class="importer__manual" open="">');
+  });
+
   // Non-Chromium users cannot install the extension at all, so pasting is their
   // only path and must never be hidden behind a disclosure.
   it("keeps the manual import flow fully visible off Chromium", () => {

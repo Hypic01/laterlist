@@ -8,11 +8,11 @@ const ACTIVE_JOB = new Set(["queued", "running", "awaiting_batch"]);
 
 // busy = the app is working on this step (spinner). An active step that is
 // waiting on the user (a button) shows a plain ring instead.
-function Step({ state, busy = false, title, children }) {
+function Step({ n, state, busy = false, title, children }) {
   return (
     <li className={`setup__step setup__step--${state}${busy ? " setup__step--busy" : ""}`}>
       <span className="setup__dot" aria-hidden="true">
-        {state === "done" ? <CheckIcon size={13} /> : busy ? <SyncIcon size={13} /> : null}
+        {state === "done" ? <CheckIcon size={13} /> : busy ? <SyncIcon size={13} /> : n}
       </span>
       <div className="setup__copy">
         <b>{title}</b>
@@ -63,7 +63,7 @@ function TasteChips({ me }) {
 
 export default function SetupScreen({
   me, extension, collection, job, extensionBusy = false, extensionSyncing = false,
-  onConnect, onSync, onImported, onConnectExtension,
+  onConnect, onSync, onImported, onConnectExtension, onManual,
 }) {
   const present = Boolean(extension?.present);
   const connected = present && extension.connected && !extension.mismatch;
@@ -97,7 +97,7 @@ export default function SetupScreen({
       <h2>Let's get your Watch Later</h2>
       <p className="setup__lead">Three quick steps. Your board starts filling in seconds.</p>
       <ol className="setup__steps">
-        <Step state={present ? "done" : "active"} title={present ? "Extension added" : "Add the Chrome extension"}>
+        <Step n={1} state={present ? "done" : "active"} title={present ? "Extension added" : "Add the Chrome extension"}>
           {present ? null : (
             <>
               <p>It reads your Watch Later right in your browser. Come back to this tab after adding it.</p>
@@ -107,7 +107,7 @@ export default function SetupScreen({
             </>
           )}
         </Step>
-        <Step state={connected ? "done" : present ? "active" : "waiting"} busy={extensionBusy}
+        <Step n={2} state={connected ? "done" : present ? "active" : "waiting"} busy={extensionBusy}
           title={connected ? `Connected to ${extension.accountEmail}` : "Connect it to your account"}>
           {present && extension.mismatch ? (
             <>
@@ -122,11 +122,16 @@ export default function SetupScreen({
             </button>
           ) : null}
         </Step>
-        <Step state={connected ? "active" : "waiting"} busy={sorting || Boolean(collection) || extensionSyncing}
+        <Step n={3} state={connected ? "active" : "waiting"} busy={sorting || Boolean(collection) || extensionSyncing}
           title={sorting ? "Sorting your videos" : "Fetching your list"}>
           {fetchBody}
         </Step>
       </ol>
+      {connected ? null : (
+        <p className="setup__manual">
+          Rather not install anything? <button type="button" onClick={onManual}>paste it in yourself</button> instead.
+        </p>
+      )}
       {failed ? <div className="importer__error" role="alert">{job.error}</div> : null}
       <TasteChips me={me} />
     </div>

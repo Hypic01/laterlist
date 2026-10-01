@@ -17,6 +17,10 @@ describe("SetupScreen", () => {
     expect(html).toContain("Let&#x27;s get your Watch Later");
     expect(html).toContain("Add to Chrome");
     expect(html).toContain("While you wait");
+    // Chrome users who'd rather not install still have a way in.
+    expect(html).toContain("paste it in yourself");
+    // Unfinished steps show their number.
+    expect(html).toMatch(/setup__dot[^>]*>1</);
   });
   it("offers a manual Connect once the extension is found", () => {
     const html = render({ extension: ext({ present: true }) });
