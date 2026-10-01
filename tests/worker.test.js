@@ -3,6 +3,7 @@ import { testDb, seedUser, vids, U1 } from "./helpers.js";
 import { createWorker } from "../server/worker.js";
 import { createFakeLlm, createLlm } from "../server/anthropic.js";
 import { loadConfig } from "../server/config.js";
+import { createJevClassifier, createFakeJevFetch } from "../server/jev.js";
 
 let db;
 const config = loadConfig({ CHUNK_SIZE: "10", BATCH_THRESHOLD: "50", BUDGET_USD: "100", FREE_VIDEO_QUOTA: "100" });
@@ -257,5 +258,68 @@ describe("batch jobs", () => {
     await worker.adoptOrphans();
     expect((await db.getJob(job.id)).state).toBe("completed");
     expect(await db.countUnscanned(U1)).toBe(0);
+  });
+});
+
+describe("jev classifier", () => {
+  const jevWorker = (classifier) => createWorker({ db, llm: null, classifier, config, batchPollMs: 0 });
+  const fakeJev = (fetchImpl = createFakeJevFetch()) =>
+    createJevClassifier({ apiKey: "", fetchImpl, sleep: async () => {} });
+
+  it("runs a batch-sized job through the sync loop, no batch API, reasons left empty", async () => {
+    await db.upsertFromImport(U1, vids(60), 10000);
+    const job = await db.createJob(U1, { mode: "batch", tier: "pro", total: 60 }); // > BATCH_THRESHOLD 50
+    await jevWorker(fakeJev()).tick();
+    const j = await db.getJob(job.id);
+    expect(j.state).toBe("completed");
+    expect(j.anthropic_batch_id).toBeNull();
+    expect(j.processed).toBe(60);
+    expect(await db.countUnscanned(U1)).toBe(0);
+    const all = Object.values(await db.getBoard(U1)).flat();
+    expect(all).toHaveLength(60);
+    expect(all.every((v) => v.reasoning === "")).toBe(true); // stored empty; the UI hides it
+  });
+
+  it("records the classifier's own cost instead of Haiku pricing", async () => {
+    await db.upsertFromImport(U1, vids(5), 10000);
+    await db.createJob(U1, { mode: "sync", tier: "pro", total: 5 });
+    const priced = {
+      supportsBatch: false,
+      classifyChunk: async (videos) => ({
+        results: videos.map((v) => ({ id: v.id, category: "learn", reasoning: null, confidence: 0.9, topics: ["tech"] })),
+        usage: { input: 1000, output: 0, costUsd: 0.25 },
+      }),
+    };
+    await jevWorker(priced).tick();
+    expect(Number((await db.getConfig("global_usage")).est_cost_usd)).toBeCloseTo(0.25);
+  });
+
+  it("retries videos a chunk left out, and skips one that keeps failing", async () => {
+    await db.upsertFromImport(U1, vids(12), 10000);
+    const [poison] = vids(1);
+    const fake = createFakeJevFetch();
+    const fetchImpl = async (url, init) =>
+      JSON.parse(init.body).state.title === poison.title ? new Response("bad", { status: 400 }) : fake(url, init);
+    const job = await db.createJob(U1, { mode: "sync", tier: "free", total: 12 });
+    await jevWorker(fakeJev(fetchImpl)).tick();
+    const j = await db.getJob(job.id);
+    expect(j.state).toBe("completed");
+    expect(j.processed).toBe(12);
+    expect(j.failed).toBe(1);
+    expect(await db.countUnscanned(U1)).toBe(0); // the poison video left the queue
+    expect(Object.values(await db.getBoard(U1)).flat()).toHaveLength(11);
+  });
+
+  it("sends the user's recent re-files with each Jev request (taste flywheel)", async () => {
+    await db.upsertFromImport(U1, vids(4), 10000);
+    const [a] = vids(1);
+    await db.setCategory(U1, a.id, "music");
+    const bodies = [];
+    const fake = createFakeJevFetch();
+    await db.createJob(U1, { mode: "sync", tier: "free", total: 3 });
+    await jevWorker(fakeJev(async (url, init) => (bodies.push(JSON.parse(init.body)), fake(url, init)))).tick();
+    expect(bodies.length).toBe(3);
+    for (const b of bodies) expect(b.questions.category.instructions).toContain(`"${a.title}"`);
+    expect(bodies[0].questions.category.instructions).toContain("they filed it as music");
   });
 });

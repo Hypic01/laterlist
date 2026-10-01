@@ -10,6 +10,8 @@ import { migrate } from "./migrations.js";
 import { createDb } from "./db.js";
 import { createAuth, supabaseVerifier, fakeVerifier } from "./auth.js";
 import { createLlm, createFakeLlm } from "./anthropic.js";
+import { createHaikuClassifier } from "./classify.js";
+import { createJevClassifier, createFakeJevFetch } from "./jev.js";
 import { createImporter } from "./importer.js";
 import { createWorker } from "./worker.js";
 import { createBilling } from "./billing.js";
@@ -63,21 +65,39 @@ export async function buildApp(env = process.env) {
   }
   const auth = createAuth({ verify, db, adminEmails: config.adminEmails });
 
-  // ---- llm (optional: without it the app runs but imports return 503) ----
+  // ---- llm (Haiku: summaries, and sorting when CLASSIFIER=haiku) ----
   let llm = null;
   if (config.anthropicApiKey && !config.fakeLlm) {
     llm = createLlm({ apiKey: config.anthropicApiKey, model: config.classifyModel });
   } else if (!isProd || config.fakeLlm) {
     llm = createFakeLlm();
-    console.log("[dev] FAKE_LLM — deterministic heuristic classification, zero API cost");
+    console.log("[dev] fake Haiku — deterministic summaries (and sorting if CLASSIFIER=haiku), zero API cost");
   } else {
-    console.warn("[boot] no ANTHROPIC_API_KEY — sorting disabled until it is set");
+    console.warn("[boot] no ANTHROPIC_API_KEY — summaries disabled until it is set");
   }
-  config.llmReady = !!llm;
+
+  // ---- classifier (optional: without it the app runs but imports return 503) ----
+  let classifier = null;
+  const jevOpts = { model: config.jevModel, concurrency: config.jevConcurrency };
+  if (config.classifier === "jev" && config.openrouterApiKey && !config.fakeLlm) {
+    classifier = createJevClassifier({ apiKey: config.openrouterApiKey, ...jevOpts });
+  } else if (config.classifier === "jev" && (config.fakeLlm || (!isProd && !config.anthropicApiKey))) {
+    classifier = createJevClassifier({ apiKey: "", fetchImpl: createFakeJevFetch(), ...jevOpts });
+    console.log("[dev] fake Jev — deterministic heuristic classification, zero API cost");
+  } else if (llm) {
+    if (config.classifier === "jev") console.warn("[boot] no OPENROUTER_API_KEY — sorting with Haiku until it is set");
+    config.classifier = "haiku";
+    classifier = createHaikuClassifier({ llm });
+  } else {
+    console.warn("[boot] no OPENROUTER_API_KEY or ANTHROPIC_API_KEY — sorting disabled until one is set");
+  }
+  config.llmReady = !!classifier;
 
   // ---- modules ----
   const importer = createImporter({ db, config });
-  const worker = llm ? createWorker({ db, llm, config, log: (m) => console.log(`[worker] ${m}`) }) : null;
+  const worker = classifier
+    ? createWorker({ db, llm, classifier, config, log: (m) => console.log(`[worker] ${m}`) })
+    : null;
   const mentor = llm ? createMentor({ llm, model: config.classifyModel }) : null;
   const transcripts = createTranscriptFetcher();
   let billing = null;

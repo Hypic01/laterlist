@@ -10,10 +10,16 @@
 // invocation's lease simply expires. Budget/kill-switch checks run before
 // every chunk. Lifecycle patterns descend from the original app's syncEngine.
 
-import { buildClassificationPrompt, validateResults, RESULT_SCHEMA } from "./classify.js";
+import { buildClassificationPrompt, validateResults, RESULT_SCHEMA, createHaikuClassifier } from "./classify.js";
 import { estimateCostUsd } from "./config.js";
 
-export function createWorker({ db, llm, config, log = () => {}, tickMs = 2000, batchPollMs = 60000, leaseSeconds = 60 }) {
+// classifier: { classifyChunk(videos, opts) → { results, usage }, supportsBatch }.
+// Defaults to Haiku over `llm`; boot passes Jev (server/jev.js) when configured.
+// `llm` is still needed for the Haiku Batches path.
+export function createWorker({
+  db, llm, classifier = createHaikuClassifier({ llm }), config, log = () => {},
+  tickMs = 2000, batchPollMs = 60000, leaseSeconds = 60,
+}) {
   let timer = null;
   let ticking = false;
   const lastBatchPoll = new Map();
@@ -64,7 +70,9 @@ export function createWorker({ db, llm, config, log = () => {}, tickMs = 2000, b
       inputTokens: usage.input,
       outputTokens: usage.output,
       videosClassified: saved,
-      costUsd: estimateCostUsd({ inputTokens: usage.input, outputTokens: usage.output, batch }),
+      costUsd: Number.isFinite(usage.costUsd)
+        ? usage.costUsd
+        : estimateCostUsd({ inputTokens: usage.input, outputTokens: usage.output, batch }),
     });
     if (job.tier === "free" && saved) await db.incrementFreeUsed(job.user_id, saved);
     return saved;
@@ -90,13 +98,21 @@ export function createWorker({ db, llm, config, log = () => {}, tickMs = 2000, b
     }
 
     const opts = await promptOptsFor(job.user_id);
-    const prompt = buildClassificationPrompt(chunk, opts);
     const ids = chunk.map((v) => v.id);
     try {
-      const { data, usage } = await llm.classifyChunk(prompt, RESULT_SCHEMA);
-      const results = validateResults(data, ids);
+      const { results, usage } = await classifier.classifyChunk(chunk, opts);
       const saved = await applyResults(job, results, usage, { batch: false });
-      await db.updateJobProgress(job.id, { processed: chunk.length, failed: chunk.length - saved });
+      // A classifier may return part of a chunk (Jev fails per video). The
+      // missing ones stay unscanned and take the same two-strikes path as a
+      // failed chunk; only their newly dead count toward progress.
+      const returned = new Set(results.map((r) => r.id));
+      const missing = ids.filter((id) => !returned.has(id));
+      const newlyDead = missing.length ? await db.incrementAttempts(job.user_id, missing) : 0;
+      if (missing.length) log(`${missing.length} videos unclassified this pass (${newlyDead} now skipped)`);
+      await db.updateJobProgress(job.id, {
+        processed: results.length + newlyDead,
+        failed: results.length - saved + newlyDead,
+      });
     } catch (e) {
       // Persist the failure; a chunk that fails twice is skipped forever so a
       // poison chunk can never wedge the job (attempts survive restarts).
@@ -212,7 +228,7 @@ export function createWorker({ db, llm, config, log = () => {}, tickMs = 2000, b
       if (job.mode === "batch" && job.anthropic_batch_id) continue;
       const leased = await db.leaseJob(job.id, leaseSeconds, { force });
       if (!leased) continue;
-      if (job.mode === "batch") await submitBatchJob(leased);
+      if (job.mode === "batch" && classifier.supportsBatch) await submitBatchJob(leased);
       else await runSyncJob(leased, deadline);
       return true;
     }
@@ -236,7 +252,9 @@ export function createWorker({ db, llm, config, log = () => {}, tickMs = 2000, b
     // 3) fresh queued jobs
     const job = await db.claimNextJob(leaseSeconds);
     if (job) {
-      if (job.mode === "batch") await submitBatchJob(job);
+      // A batch-mode job under a classifier without a batch API (Jev) just
+      // runs the sync chunk loop — fast enough that batching buys nothing.
+      if (job.mode === "batch" && classifier.supportsBatch) await submitBatchJob(job);
       else await runSyncJob(job, deadline);
       return true;
     }

@@ -24,8 +24,10 @@ end to end without Supabase, Anthropic, or Stripe credentials.
   `index.js` is the composition root; everything is factory-injected.
   - `db.js` over `pg.Pool` (Supabase) or PGlite (tests/dev) via one `query()` interface
   - `auth.js` verifies Supabase JWTs (JWKS or legacy HS256), JIT-provisions users
-  - `classify.js` + `anthropic.js` — metadata-only prompt, structured outputs,
-    Batches API (half price) for jobs over 500 videos
+  - `jev.js` — default sorting engine: Jev (TypeSafe) via OpenRouter's decisions
+    API, one metadata-only request per video in a parallel pool, no batching needed
+  - `classify.js` + `anthropic.js` — the shared sorting rules, plus the Haiku
+    fallback (`CLASSIFIER=haiku`): structured outputs, Batches API over 500 videos
   - `worker.js` — claims jobs (`FOR UPDATE SKIP LOCKED`), chunked processing,
     crash re-adoption, budget kill switch
   - `billing.js` — Stripe Checkout + Portal + signature-verified webhooks
@@ -55,10 +57,13 @@ before strangers can fully use it — each is copy-paste:
    Authentication → URL Configuration set Site URL `https://watch-later-web.vercel.app`
    and add `https://watch-later-web.vercel.app/app` as a redirect URL.
 
-3. **Sorting engine**: create a key at console.anthropic.com, then:
+3. **Sorting engine**: create a key at openrouter.ai (add credits), then:
 
-       printf 'sk-ant-...' | vercel env add ANTHROPIC_API_KEY production
+       printf 'sk-or-v1-...' | vercel env add OPENROUTER_API_KEY production
        vercel deploy --prod --yes
+
+   `ANTHROPIC_API_KEY` stays for summaries, and sorting falls back to Haiku
+   if the OpenRouter key is missing. `CLASSIFIER=haiku` forces the fallback.
 
 Optional while testing: `BETA_ALLOWLIST` (comma-separated emails) gates imports.
 Stripe env (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`)
@@ -83,6 +88,7 @@ Note: Vercel's Hobby plan is for non-commercial use; move the project to Pro
 
 ## Cost model
 
-Haiku 4.5, metadata-only, ~25 videos per call. Free tier ≈ $0.037/user.
-A maxed 10,000-video Pro subscriber ≈ $1.87 once (Batches API). `BUDGET_USD`
+Jev, metadata-only, one request per video: ≈ $0.04 per 1,000 videos (measured
+2026-09-30). Free tier ≈ $0.04/user; a maxed 10,000-video Pro subscriber ≈ $0.40
+once. (Haiku fallback: ≈ $0.40–0.77 per 1,000, half that via Batches.) `BUDGET_USD`
 kill switch caps total spend; admins get `/api/admin/stats`.
