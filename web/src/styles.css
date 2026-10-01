@@ -175,17 +175,10 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: -.02em; white-space: nowrap;
 }
 .topbar__spacer { flex: 1; }
+/* Phones: secondary topbar buttons drop their label so the bar stays one line. */
+@media (max-width: 480px) { .topbar .btn--ghost .btn__label { display: none; } }
 @media (max-width: 760px) { .brand h1 { display: none; } }
 
-/* Below ~620px the action buttons overran the viewport and clipped Settings past
-   the right edge, making it unreachable on a phone. Wrapping guarantees every
-   control stays on screen: the spacer would otherwise hold a full-width gap open
-   across the wrap, and the stat is informational so it drops to its own line. */
-@media (max-width: 620px) {
-  .topbar { flex-wrap: wrap; row-gap: var(--space-2); }
-  .topbar__spacer { display: none; }
-  .topbar .wl-stat { order: 5; flex: 1 1 100%; white-space: normal; }
-}
 
 .btn {
   display: inline-flex; align-items: center; gap: var(--space-2);
@@ -201,24 +194,11 @@ button { font-family: inherit; cursor: pointer; }
 .btn--primary:hover { background: var(--primary-hover); box-shadow: var(--shadow-card); }
 .btn--ghost { background: var(--secondary); color: var(--foreground); border-color: var(--border); }
 .btn--ghost:hover { background: var(--popover); border-color: var(--border-strong); }
+/* Icon-only utility (Settings): no chrome until hovered, so the primary action leads. */
+.btn--icon { padding: 9px; background: none; border-color: transparent; color: var(--muted); }
+.btn--icon:hover { background: var(--secondary); border-color: var(--border); color: var(--foreground); }
 .btn--danger { background: none; color: var(--color-destructive); border-color: color-mix(in srgb, var(--color-destructive) 40%, transparent); }
 .btn--danger:hover { background: color-mix(in srgb, var(--color-destructive) 12%, transparent); }
-
-.wl-stat {
-  color: var(--color-muted); font-family: var(--font-mono); font-size: 11.5px;
-  white-space: nowrap; font-variant-numeric: tabular-nums;
-  background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill); padding: 6px 12px;
-}
-@media (max-width: 900px) { .wl-stat { display: none; } }
-
-.plan-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
-  border-radius: var(--radius-pill); padding: 4px 10px; text-transform: uppercase; letter-spacing: .06em;
-}
-.plan-badge--free { color: var(--color-muted); background: var(--color-surface); border: 1px solid var(--color-border); }
-.plan-badge--pro { color: var(--primary-foreground); background: var(--primary-hover); }
 
 /* ---------- Progress band (classification job) ---------- */
 .progress-track { height: 6px; background: var(--color-surface); border-radius: var(--radius-pill); overflow: hidden; }
@@ -359,26 +339,30 @@ button { font-family: inherit; cursor: pointer; }
 .select:focus { border-color: var(--color-primary); outline: none; }
 .sortbox { flex: 0 0 auto; }
 
-.filters { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-4); }
-.filters__group { display: flex; align-items: flex-start; gap: var(--space-4); }
-.filters__label {
-  flex: 0 0 62px; padding: 9px 0;
-  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .16em; color: var(--faint);
+.filters {
+  display: flex; align-items: center; gap: var(--space-2);
+  /* The scroller clips vertically too; 4px of block padding keeps focus rings visible. */
+  margin-top: calc(var(--space-4) - 4px); padding-block: 4px; padding-left: 4px; margin-left: -4px;
+  overflow-x: auto; scrollbar-width: none; min-width: 0;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
+  padding-right: 48px;
 }
-.filters__items { display: flex; flex-wrap: wrap; gap: var(--space-2); min-width: 0; }
+.filters::-webkit-scrollbar { display: none; }
+.filters__group { display: flex; gap: var(--space-2); flex: none; }
+.filters__divider { flex: none; width: 1px; height: 18px; margin: 0 var(--space-2); background: var(--border-strong); }
 .chip {
   display: inline-flex; align-items: center; gap: 7px;
   background: var(--color-surface); color: var(--color-foreground);
   border: 1px solid var(--color-border); border-radius: var(--radius-pill);
-  padding: 8px 16px; font-size: 13.5px; font-weight: 500;
+  padding: 8px 16px; font-size: 14px; font-weight: 500; white-space: nowrap;
   transition: background var(--speed) var(--ease), color var(--speed) var(--ease),
     border-color var(--speed) var(--ease);
 }
 .chip:hover { border-color: var(--color-border-strong); background: var(--color-surface-raised); }
 .chip--active { background: var(--primary); color: var(--primary-foreground); border-color: transparent; font-weight: 600; }
-.chip--duration { font-family: var(--font-mono); font-size: 12px; }
-.chip__count { font-family: var(--font-mono); font-size: 11px; opacity: .65; font-variant-numeric: tabular-nums; }
+.chip--duration { font-family: var(--font-mono); font-size: 12.5px; }
+.chip__count { font-family: var(--font-mono); font-size: 11.5px; opacity: .65; font-variant-numeric: tabular-nums; }
 
 /* ---------- Expanded category view ---------- */
 .catview { margin-top: var(--space-5); }
@@ -394,8 +378,8 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; align-items: flex-end; justify-content: space-between;
   gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4);
 }
-.catview__toolbar-filters { flex: 1; min-width: 260px; }
-.catview__toolbar-filters .filters { margin-top: 0; }
+.catview__toolbar-filters { flex: 1; min-width: 0; }
+.catview__toolbar-filters .filters { margin-top: -4px; margin-bottom: -4px; }
 .catview__toolbar .sortbox { margin-left: auto; }
 .catview__header h2 { font-family: var(--font-display); font-size: 24px; font-weight: 500; letter-spacing: .004em; }
 .grid {
@@ -435,17 +419,18 @@ button { font-family: inherit; cursor: pointer; }
   color: #fff;
 }
 .card__thumbwrap:hover .card__open, .card__thumbwrap:focus-visible .card__open {
-  background: rgba(10, 9, 7, .58);
+  background: rgba(10, 9, 7, .45);
 }
 .card__open span {
   display: inline-flex; align-items: center; gap: 6px;
   background: rgba(10, 9, 7, .88); border: 1px solid var(--border-strong);
   border-radius: var(--radius-pill); padding: 6px 14px; font-size: 12.5px; font-weight: 600;
   box-shadow: 0 5px 18px rgba(0, 0, 0, .3);
-  transition: transform var(--speed) var(--ease), background var(--speed) var(--ease);
+  opacity: 0; transform: scale(.92);
+  transition: transform var(--speed) var(--ease), opacity var(--speed) var(--ease);
 }
 .card__thumbwrap:hover .card__open span, .card__thumbwrap:focus-visible .card__open span {
-  background: rgba(10, 9, 7, .96); transform: scale(1.035);
+  opacity: 1; transform: scale(1);
 }
 .card__duration {
   position: absolute; right: 8px; bottom: 8px;
@@ -560,6 +545,39 @@ button { font-family: inherit; cursor: pointer; }
   font-family: inherit; font-size: 14px; line-height: 1.5; padding: var(--space-3);
 }
 .onboard textarea:focus { border-color: var(--color-primary); outline: none; }
+
+/* ---------- First-run setup ---------- */
+.setup { max-width: 600px; margin: var(--space-7) auto 0; animation: rise .4s var(--ease) backwards; }
+.setup > h2 { font-family: var(--font-display); font-size: 28px; font-weight: 500; letter-spacing: .004em; }
+.setup__lead { color: var(--muted); margin-top: var(--space-2); }
+.setup__steps { list-style: none; padding: 0; margin: var(--space-5) 0 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.setup__step {
+  display: flex; gap: var(--space-3); align-items: flex-start;
+  padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--card); transition: border-color var(--speed) var(--ease), opacity var(--speed) var(--ease);
+}
+.setup__step--active { border-color: var(--border-strong); }
+.setup__step--waiting { opacity: .5; }
+.setup__dot {
+  flex: none; width: 24px; height: 24px; border-radius: 50%; margin-top: 1px;
+  display: grid; place-items: center; border: 1px solid var(--border-strong); color: var(--muted);
+}
+.setup__step--done .setup__dot { background: var(--foreground); color: var(--background); border-color: transparent; }
+.setup__step--active .setup__dot { color: var(--foreground); }
+.setup__step--busy .setup__dot svg { animation: spin 1.4s linear infinite; }
+.setup__dot { font-family: var(--font-mono); font-size: 11.5px; }
+.setup__manual { margin-top: var(--space-3); color: var(--muted); font-size: 14px; }
+.setup__manual button { padding: 0; border: 0; background: none; color: var(--foreground); text-decoration: underline; text-underline-offset: 3px; }
+.setup__copy { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); min-width: 0; }
+.setup__copy b { font-weight: 600; }
+.setup__copy p { color: var(--muted); font-size: 14px; }
+.setup__taste { margin-top: var(--space-6); padding-top: var(--space-5); border-top: 1px solid var(--border); }
+.setup__taste h3 { font-size: 15px; font-weight: 600; }
+.setup__taste p { color: var(--muted); font-size: 14px; margin-top: var(--space-1); }
+.setup .onboard__chips { margin-top: var(--space-4); }
+.setup__fetch-error { color: var(--destructive) !important; }
+.setup__taste-error { margin-top: var(--space-3); color: var(--destructive); font-size: 14px; }
+.setup__taste-error button { padding: 0; border: 0; background: none; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .onboard__actions { display: flex; gap: var(--space-3); margin-top: var(--space-5); align-items: center; }
 .onboard__skip { background: none; border: 0; color: var(--color-faint); font-size: 13px; }
 .onboard__skip:hover { color: var(--color-muted); text-decoration: underline; }

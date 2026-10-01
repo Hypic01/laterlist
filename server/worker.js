@@ -88,8 +88,12 @@ export function createWorker({
       return "done";
     }
     // A classifier can ask for bigger chunks (Jev parallelizes within one), so
-    // the fixed per-chunk bookkeeping is paid fewer times.
-    const chunkSize = classifier.chunkSize || config.chunkSize;
+    // the fixed per-chunk bookkeeping is paid fewer times. The first chunk of a
+    // job can be smaller so the board shows results sooner.
+    const fullChunk = classifier.chunkSize || config.chunkSize;
+    const chunkSize = fresh.processed === 0 && classifier.firstChunkSize
+      ? Math.min(classifier.firstChunkSize, fullChunk)
+      : fullChunk;
     const chunk = await db.getUnscanned(job.user_id, Math.min(chunkSize, remaining));
     if (!chunk.length) {
       await db.finishJob(job.id, "completed");

@@ -1,5 +1,6 @@
 import { buildPayload, isWatchLaterPage } from "../../collector/collector.js";
 import { AUTO_SYNC_KEY } from "./auto-sync.js";
+import { openBackgroundTab } from "./tabs.js";
 import {
   COLLECT_DONE,
   COLLECT_ERROR,
@@ -63,6 +64,7 @@ function benignImport(error) {
 
 export function createSyncController({
   tabs,
+  windows = null,
   scripting,
   storage,
   api,
@@ -237,10 +239,7 @@ export function createSyncController({
     }
     if (!tab) tab = await findWatchLaterTab();
     if (!tab) {
-      tab = await tabs.create({
-        url: WATCH_LATER_URL,
-        active: false,
-      });
+      tab = await openBackgroundTab({ tabs, windows }, WATCH_LATER_URL);
       createdTab = true;
     }
 

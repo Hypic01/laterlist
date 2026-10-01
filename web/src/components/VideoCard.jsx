@@ -3,8 +3,6 @@ import { formatDuration } from "../lib.js";
 import {
   CheckIcon,
   ExternalIcon,
-  LearnIcon,
-  LockIcon,
   MoreIcon,
   PlayIcon,
   SparklesIcon,
@@ -13,7 +11,7 @@ import {
 
 const CATEGORIES = ["learn", "watch", "music", "entertainment", "outdated"];
 
-export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDetail, onTldr, onLearn, freePlan }) {
+export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDetail, onTldr }) {
   // hq720 (1280x720) exists for most videos; hqdefault (480x360) always exists
   const [fallback, setFallback] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -46,9 +44,6 @@ export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDeta
         <div className="card__actions">
           <button onClick={() => onTldr?.(video)} aria-label={`TL;DR for "${video.title}"`}>
             <SparklesIcon size={13} /> TL;DR
-          </button>
-          <button onClick={() => onLearn?.(video)} aria-label={`Learn "${video.title}"`}>
-            {freePlan ? <LockIcon size={12} /> : <LearnIcon size={13} />} Learn
           </button>
           <div className="card__menuwrap">
             <button className="card__kebab" aria-haspopup="menu" aria-expanded={menuOpen}

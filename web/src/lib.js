@@ -2,7 +2,7 @@
 // separately (VITE_EXTENSION_ID) because detection and installation are different
 // concerns: this URL is where a user without the extension goes.
 export const CHROME_STORE_URL =
-  "https://chromewebstore.google.com/detail/watch-later-librarian-syn/iggeklmapgdaknfdblkhefnfaflbojeg";
+  "https://chromewebstore.google.com/detail/iggeklmapgdaknfdblkhefnfaflbojeg";
 
 export const SORTS = {
   "added-new": { label: "Added: newest", fn: (a, b) => (a.playlist_position ?? 1e9) - (b.playlist_position ?? 1e9) },
@@ -64,3 +64,16 @@ export const INTEREST_OPTIONS = [
   "travel", "health & fitness", "beauty & fashion", "money & business",
   "vlogs & daily life", "cars",
 ];
+
+// A first-run user has never had a video sorted. Imported-but-unsorted videos
+// don't count, so the setup screen stays up until the first sort lands.
+export function isFirstRun(counts) {
+  const c = counts || {};
+  return !((Number(c.scanned) || 0) + (Number(c.done) || 0) + (Number(c.dismissed) || 0));
+}
+
+// The first time a new user's extension shows up, connect and sync for them.
+// Never auto-connect an extension tied to another account.
+export function shouldAutoConnect({ firstRun, checking, present, connected, mismatch, jobActive, attempted }) {
+  return Boolean(firstRun && !checking && present && !connected && !mismatch && !jobActive && !attempted);
+}

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "./api.js";
-import { SORTS, parseTopics, timeAgo, absoluteTime } from "./lib.js";
+import { SORTS, parseTopics, timeAgo, absoluteTime, isFirstRun, shouldAutoConnect } from "./lib.js";
 import { hasSession, signInWithGoogle, signInDev, isDevAuth, onAuthChange } from "./auth.js";
 import Row from "./components/Row.jsx";
 import CategoryView from "./components/CategoryView.jsx";
@@ -10,6 +10,7 @@ import JobProgress from "./components/JobProgress.jsx";
 import UpgradeBand from "./components/UpgradeBand.jsx";
 import Settings from "./components/Settings.jsx";
 import VideoDetail from "./components/VideoDetail.jsx";
+import SetupScreen from "./components/SetupScreen.jsx";
 import {
   availabilitySummary,
   createExtensionClient,
@@ -22,7 +23,6 @@ import {
 import {
   LearnIcon, EyeIcon, MusicIcon, GamepadIcon, ArchiveIcon, BrandMark,
   SettingsIcon, UploadIcon, GoogleIcon, SyncIcon,
-  SunIcon, MoonIcon,
 } from "./components/icons.jsx";
 
 const ROWS = [
@@ -47,31 +47,12 @@ const DURATIONS = [
 
 const ACTIVE_STATES = new Set(["queued", "running", "awaiting_batch"]);
 
-// Dark is the default; the toggle flips <html data-theme> and remembers the choice.
-function ThemeToggle() {
-  const [light, setLight] = useState(
-    () => typeof document !== "undefined" && document.documentElement.dataset.theme === "light"
-  );
-  const toggle = () => {
-    const next = !light;
-    setLight(next);
-    const root = document.documentElement;
-    if (next) root.dataset.theme = "light"; else delete root.dataset.theme;
-    try { localStorage.setItem("laterlist:theme", next ? "light" : "dark"); } catch { /* private mode */ }
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", next ? "#D9D9D9" : "#191919");
-  };
-  return (
-    <button className="btn btn--ghost" onClick={toggle}
-      aria-label={light ? "Switch to dark theme" : "Switch to light theme"}
-      title={light ? "Switch to dark" : "Switch to light"}>
-      {light ? <MoonIcon size={15} /> : <SunIcon size={15} />}
-    </button>
-  );
-}
-
-function AuthGate() {
+function AuthGate({ autoSignIn = false }) {
   const [email, setEmail] = useState("");
+  // Landing CTAs link to /app?signin=1: go straight to Google, no extra card.
+  useEffect(() => {
+    if (autoSignIn && !isDevAuth) void signInWithGoogle();
+  }, [autoSignIn]);
   return (
     <div className="authgate">
       <div className="authgate__card">
@@ -104,6 +85,16 @@ export default function App() {
   const [board, setBoard] = useState(null);
   const [job, setJob] = useState(null);
   const [view, setView] = useState("board");
+  // Read ?signin=1 once and strip it right away, signed in or not, so a later
+  // sign-out reload can't bounce the user straight back to Google.
+  const [signinRequested] = useState(
+    () => typeof location !== "undefined" && new URLSearchParams(location.search).has("signin")
+  );
+  useEffect(() => {
+    if (signinRequested) history.replaceState(null, "", location.pathname);
+  }, [signinRequested]);
+  // Set when a new user picks "paste it in yourself" on the setup screen.
+  const [manualImport, setManualImport] = useState(false);
   const [focus, setFocus] = useState(null);
   const [focusIntent, setFocusIntent] = useState(null);
   const [query, setQuery] = useState("");
@@ -122,6 +113,7 @@ export default function App() {
   });
   const [extensionBusy, setExtensionBusy] = useState(false);
   const pollRef = useRef(null);
+  const lastProcessedRef = useRef(0);
   const toastRef = useRef(null);
   const failNoticeRef = useRef(null);
   const doneNoticeRef = useRef(null);
@@ -222,17 +214,24 @@ export default function App() {
   useEffect(() => {
     clearInterval(pollRef.current);
     if (!job || !ACTIVE_STATES.has(job.state)) return;
+    lastProcessedRef.current = Number(job.processed) || 0;
     pollRef.current = setInterval(async () => {
       const { job: fresh } = await api.getCurrentJob().catch(() => ({ job: null }));
       if (fresh && ACTIVE_STATES.has(fresh.state)) activeSeenRef.current.add(fresh.id);
       setJob(fresh);
+      // Rows fill as chunks commit, so a new user sees videos while the rest sort.
+      const processed = Number(fresh?.processed) || 0;
+      if (fresh && ACTIVE_STATES.has(fresh.state) && processed > lastProcessedRef.current) {
+        lastProcessedRef.current = processed;
+        void reload().catch(() => {});
+      }
       // Completion and failure handling live in the announcement effects
       // below, so a job that finishes faster than one poll interval — or
       // inside the very request that started it — is treated identically.
       if (fresh && !ACTIVE_STATES.has(fresh.state)) clearInterval(pollRef.current);
     }, 3000);
     return () => clearInterval(pollRef.current);
-  }, [job?.id, job?.state]);
+  }, [job?.id, job?.state, reload]);
 
   // Announce a failed job's reason exactly once per job — including jobs that
   // failed before this client ever saw them active. A batch submit can be
@@ -264,6 +263,7 @@ export default function App() {
     let active = true;
     let port = null;
     let reconnectTimer = null;
+    let presentNow = false;
 
     const payloadOf = (message) => message?.payload || message || {};
     const onPortMessage = (message) => {
@@ -328,7 +328,9 @@ export default function App() {
     };
 
     const connectPort = () => {
-      if (!active || !extensionClient.extensionId) return;
+      // One Port at a time: a second detect (initial load racing a tab return)
+      // must not open a second subscription and double-handle sync messages.
+      if (!active || port || !extensionClient.extensionId) return;
       try {
         port = extensionClient.connectPort();
         port.onMessage.addListener(onPortMessage);
@@ -341,10 +343,17 @@ export default function App() {
       }
     };
 
-    const detect = async () => {
-      setExtensionState((current) => ({ ...current, checking: true }));
+    // Share an in-flight detection so overlapping callers wait for one result.
+    let detecting = null;
+    const detect = (options) => {
+      detecting ??= runDetect(options).finally(() => { detecting = null; });
+      return detecting;
+    };
+    const runDetect = async ({ quiet = false } = {}) => {
+      if (!quiet) setExtensionState((current) => ({ ...current, checking: true }));
       const found = await extensionClient.detect();
       if (!active) return;
+      presentNow = found.present;
       if (!found.present) {
         setExtensionState({ checking: false, present: false, version: null, status: null, progress: null });
         return;
@@ -371,9 +380,26 @@ export default function App() {
       }
     };
 
+    // A fresh install happens in the Web Store tab. When the user comes back,
+    // look again (a new install can take a moment to answer).
+    let redetecting = false;
+    const onVisible = async () => {
+      if (!active || presentNow || redetecting || document.visibilityState !== "visible") return;
+      redetecting = true;
+      for (let attempt = 0; attempt < 3 && active && !presentNow; attempt++) {
+        if (attempt) await new Promise((resolve) => setTimeout(resolve, 1500));
+        await detect({ quiet: true });
+      }
+      redetecting = false;
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
     void detect();
     return () => {
       active = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
       clearTimeout(reconnectTimer);
       try { port?.disconnect(); } catch { /* The extension may already be gone. */ }
     };
@@ -433,12 +459,41 @@ export default function App() {
     }
   }, [extensionClient, showToast]);
 
+  // First run: the moment the extension shows up, connect it and start the
+  // sync, so a new user never has to find two more buttons.
+  const autoConnectRef = useRef(false);
+  // On the setup screen, a manual Connect or Reconnect also starts the fetch,
+  // so the user never has to find a second button.
+  const connectAndSync = useCallback(async () => {
+    const created = await connectExtension();
+    if (created) await syncExtension();
+  }, [connectExtension, syncExtension]);
+  useEffect(() => {
+    if (!me) return;
+    const connected = Boolean(extensionState.status?.connected);
+    const connectedEmail = extensionState.status?.email?.trim().toLowerCase() || "";
+    const ok = shouldAutoConnect({
+      firstRun: isFirstRun(me.counts),
+      checking: extensionState.checking,
+      present: extensionState.present,
+      connected,
+      mismatch: Boolean(connected && connectedEmail && connectedEmail !== me.email.trim().toLowerCase()),
+      jobActive: Boolean(job && ACTIVE_STATES.has(job.state)),
+      attempted: autoConnectRef.current,
+    });
+    if (!ok) return;
+    autoConnectRef.current = true;
+    void (async () => {
+      const created = await connectExtension();
+      if (created) await syncExtension();
+    })();
+  }, [me, extensionState.checking, extensionState.present, extensionState.status, job, connectExtension, syncExtension]);
+
   if (authed === null) return <div className="loading">loading…</div>;
-  if (!authed) return <AuthGate />;
+  if (!authed) return <AuthGate autoSignIn={signinRequested} />;
   if (!me || !board) return <div className="loading">loading…</div>;
 
   const totalVideos = Object.values(me.counts).reduce((a, b) => a + b, 0);
-  const needsQuiz = !me.hasTaste && totalVideos === 0;
   const waitingCount = ACTIVE_STATES.has(job?.state) ? 0 : me.counts.unscanned;
   // The importer caps storage AT the plan cap, so >= fires exactly when full.
   const atCap = me.plan !== "pro" && totalVideos >= me.videoCap;
@@ -491,34 +546,31 @@ export default function App() {
   const dismiss = async (id) => { await api.dismissVideo(id); reload(); };
   const done = async (id) => { await api.markDone([id]); showToast("Marked done. It's in your History, in Settings."); reload(); };
   // Intent carries a card-level action into the detail view: "play" starts the
-  // player, "tldr" starts the summary, and "learn" triggers the Learn flow.
+  // player and "tldr" starts the summary.
   const openDetail = (video, intent = null) => {
     setFocusIntent(intent);
     setFocus(video);
   };
   const cardTldr = (video) => openDetail(video, "tldr");
-  const cardLearn = (video) => openDetail(video, "learn");
-  const freePlan = me.plan !== "pro";
   const detailRow = focus ? ROWS.find((row) => row.key === focus.category) : null;
 
+  // One quiet line of filters: length first, then topics by count. The line
+  // scrolls sideways instead of wrapping so it never grows into a wall of chips.
   const chipsBar = (
     <div className="filters">
       <div className="filters__group" role="group" aria-label="Filter by length">
-        <span className="filters__label">Length</span>
-        <div className="filters__items">
-          {DURATIONS.map((d) => (
-            <button key={d.key} className={`chip chip--duration${duration === d.key ? " chip--active" : ""}`}
-              onClick={() => setDuration(duration === d.key ? null : d.key)}
-              aria-pressed={duration === d.key}>
-              {d.label}
-            </button>
-          ))}
-        </div>
+        {DURATIONS.map((d) => (
+          <button key={d.key} className={`chip chip--duration${duration === d.key ? " chip--active" : ""}`}
+            onClick={() => setDuration(duration === d.key ? null : d.key)}
+            aria-pressed={duration === d.key}>
+            {d.label}
+          </button>
+        ))}
       </div>
       {topicCounts.length > 0 && (
-        <div className="filters__group" role="group" aria-label="Filter by topic">
-          <span className="filters__label">Topic</span>
-          <div className="filters__items">
+        <>
+          <span className="filters__divider" aria-hidden="true" />
+          <div className="filters__group" role="group" aria-label="Filter by topic">
             {topicCounts.map(([t, n]) => (
               <button key={t} className={`chip${topic === t ? " chip--active" : ""}`}
                 onClick={() => setTopic(topic === t ? null : t)} aria-pressed={topic === t}>
@@ -526,12 +578,14 @@ export default function App() {
               </button>
             ))}
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 
   const boardEmpty = totalVideos === 0;
+  // A new user sees the setup checklist (with progress) instead of an empty board.
+  const onSetup = !focus && view === "board" && isFirstRun(me.counts);
 
   return (
     <div className="app">
@@ -540,33 +594,23 @@ export default function App() {
           <span className="brand__mark"><BrandMark size={18} /></span>
           <h1>laterlist</h1>
         </button>
-        <span className={`plan-badge plan-badge--${me.plan}`}>{me.plan}</span>
         <div className="topbar__spacer" />
-        {totalVideos > 0 && (
-          <span className="wl-stat" title="Videos sorted into your later list">
-            {me.counts.scanned.toLocaleString()} sorted
-          </span>
-        )}
         {extensionConnected ? (
-          <button className="btn btn--ghost" disabled={extensionSyncing} onClick={syncExtension}>
-            <SyncIcon size={15} /> {extensionSyncing ? "Syncing…" : "Sync"}
+          <button className="btn btn--ghost" disabled={extensionSyncing} onClick={syncExtension}
+            aria-label={extensionSyncing ? "Syncing" : "Sync"} title="Sync from YouTube">
+            <SyncIcon size={15} /> <span className="btn__label">{extensionSyncing ? "Syncing…" : "Sync"}</span>
           </button>
         ) : null}
-        <button className="btn btn--primary" onClick={() => { setFocus(null); setView("import"); }}>
+        <button className="btn btn--primary" onClick={() => { setFocus(null); setView("import"); }}
+          title={me.lastImportAt ? `Last imported ${timeAgo(me.lastImportAt)} (${absoluteTime(me.lastImportAt)})` : undefined}>
           <UploadIcon size={15} /> Import
         </button>
-        {me.lastImportAt && (
-          <span className="wl-stat" title={absoluteTime(me.lastImportAt)}>
-            Imported {timeAgo(me.lastImportAt)}
-          </span>
-        )}
-        <ThemeToggle />
-        <button className="btn btn--ghost" onClick={() => { setFocus(null); setView("settings"); }} aria-label="Settings" title="Settings">
+        <button className="btn btn--ghost btn--icon" onClick={() => { setFocus(null); setView("settings"); }} aria-label="Settings" title="Settings">
           <SettingsIcon size={15} />
         </button>
       </header>
 
-      {extensionState.progress || (job && ACTIVE_STATES.has(job.state)) ? (
+      {!onSetup && (extensionState.progress || (job && ACTIVE_STATES.has(job.state))) ? (
         <JobProgress job={job} collection={extensionState.progress} onCancelled={reload} />
       ) : null}
       {toast && <div className="toast" role="status" aria-live="polite">{toast}</div>}
@@ -580,8 +624,6 @@ export default function App() {
             onDismiss={dismiss} onDone={done}
             onToast={showToast} onSummaryUsed={onSummaryUsed}
             onLearn={() => showToast("Learn sessions are coming soon.")} />
-        ) : needsQuiz && view !== "import" && view !== "settings" ? (
-          <Onboarding onDone={() => reload().then(() => setView("import"))} />
         ) : view === "settings" ? (
           <Settings me={me} onBack={() => setView("board")} onToast={showToast}
             onRetakeQuiz={() => { api.saveTaste({ interests: [], note: "" }); setView("quiz"); }}
@@ -593,14 +635,21 @@ export default function App() {
           <ImportPanel onImported={onImported} extension={extension}
             onConnectExtension={connectExtension} extensionBusy={extensionBusy}
             extensionConnected={extensionConnected} onSyncExtension={syncExtension}
-            extensionSyncing={extensionSyncing} />
+            extensionSyncing={extensionSyncing} manualOpen={manualImport} />
         ) : ROWS.some((r) => r.key === view) ? (
           <CategoryView row={ROWS.find((r) => r.key === view)}
             videos={withQuery(matches(board[view]))} chips={chipsBar}
             query={query} onQuery={setQuery} sort={sort} onSort={setSort}
             onMove={move} onDismiss={dismiss} onDone={done} onOpenDetail={openDetail}
-            onTldr={cardTldr} onLearn={cardLearn} freePlan={freePlan}
+            onTldr={cardTldr}
             onBack={() => { setView("board"); setQuery(""); }} />
+        ) : onSetup ? (
+          <SetupScreen me={me} extension={extension} collection={extensionState.progress} job={job}
+            extensionBusy={extensionBusy} extensionSyncing={extensionSyncing}
+            onConnect={connectAndSync} onSync={syncExtension}
+            onImported={onImported} onConnectExtension={connectExtension}
+            onManual={() => { setManualImport(true); setView("import"); }}
+            fetchError={extensionState.status?.lastResult?.error ? extensionState.status.lastResult : null} />
         ) : boardEmpty ? (
           <div className="empty-hero">
             <span className="empty-hero__icon"><UploadIcon size={30} /></span>
@@ -622,7 +671,7 @@ export default function App() {
                 videos={matches(board[r.key])} emptyLine={r.empty}
                 onMove={move} onDismiss={dismiss} onDone={done}
                 onOpenDetail={openDetail}
-                onTldr={cardTldr} onLearn={cardLearn} freePlan={freePlan}
+                onTldr={cardTldr}
                 onOpen={() => setView(r.key)} />
             ))}
             {job?.state === "failed" && job.error ? (

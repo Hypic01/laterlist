@@ -266,6 +266,17 @@ describe("jev classifier", () => {
   const fakeJev = (fetchImpl = createFakeJevFetch()) =>
     createJevClassifier({ apiKey: "", fetchImpl, sleep: async () => {} });
 
+  it("sorts the first chunk in one concurrency round so videos appear fast", async () => {
+    await db.upsertFromImport(U1, vids(40), 10000);
+    const jev = createJevClassifier({ apiKey: "", fetchImpl: createFakeJevFetch(), sleep: async () => {}, concurrency: 16, chunkSize: 100 });
+    const sizes = [];
+    const recording = { ...jev, classifyChunk: (videos, opts) => { sizes.push(videos.length); return jev.classifyChunk(videos, opts); } };
+    const job = await db.createJob(U1, { mode: "sync", tier: "free", total: 40 });
+    await jevWorker(recording).tick();
+    expect((await db.getJob(job.id)).state).toBe("completed");
+    expect(sizes).toEqual([16, 24]);
+  });
+
   it("runs a batch-sized job through the sync loop, no batch API, reasons left empty", async () => {
     await db.upsertFromImport(U1, vids(60), 10000);
     const job = await db.createJob(U1, { mode: "batch", tier: "pro", total: 60 }); // > BATCH_THRESHOLD 50

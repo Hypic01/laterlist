@@ -79,12 +79,16 @@ function sendMessage(runtime, extensionId, type, payload = {}) {
 }
 
 export function createExtensionClient({
-  runtime = globalThis.chrome?.runtime,
+  runtime: injectedRuntime,
   extensionIds = parseExtensionIds(import.meta.env.VITE_EXTENSION_ID),
 } = {}) {
   let selectedId = null;
+  // Read chrome.runtime on every call: a page opened before the extension was
+  // installed only gains it afterwards, and detect() must be able to see it.
+  const getRuntime = () => injectedRuntime ?? globalThis.chrome?.runtime;
 
   const send = async (type, payload) => {
+    const runtime = getRuntime();
     if (!runtime || !selectedId) throw new Error("Chrome extension is not available.");
     const response = await sendMessage(runtime, selectedId, type, payload);
     if (!response) throw new Error("Chrome extension did not respond.");
@@ -93,7 +97,7 @@ export function createExtensionClient({
 
   return {
     get configured() {
-      return Boolean(runtime && extensionIds.length);
+      return Boolean(getRuntime() && extensionIds.length);
     },
 
     get extensionId() {
@@ -102,6 +106,7 @@ export function createExtensionClient({
 
     async detect() {
       selectedId = null;
+      const runtime = getRuntime();
       if (!runtime) return { present: false };
       for (const id of extensionIds) {
         try {
@@ -140,6 +145,7 @@ export function createExtensionClient({
     },
 
     connectPort() {
+      const runtime = getRuntime();
       if (!runtime || !selectedId) throw new Error("Chrome extension is not available.");
       return runtime.connect(selectedId, { name: WLL_SYNC_PORT });
     },
