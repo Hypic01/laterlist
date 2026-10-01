@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Laterlist Sync",
+  "name": "Laterlist for YouTube",
   "version": "1.1.0",
   "description": "Sorts your own YouTube Watch Later into tidy shelves with AI. One click sync; new saves are filed automatically.",
   "permissions": ["scripting", "storage", "alarms"],
