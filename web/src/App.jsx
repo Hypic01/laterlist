@@ -47,15 +47,12 @@ const DURATIONS = [
 
 const ACTIVE_STATES = new Set(["queued", "running", "awaiting_batch"]);
 
-function AuthGate() {
+function AuthGate({ autoSignIn = false }) {
   const [email, setEmail] = useState("");
   // Landing CTAs link to /app?signin=1: go straight to Google, no extra card.
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (!params.has("signin")) return;
-    history.replaceState(null, "", location.pathname);
-    if (!isDevAuth) void signInWithGoogle();
-  }, []);
+    if (autoSignIn && !isDevAuth) void signInWithGoogle();
+  }, [autoSignIn]);
   return (
     <div className="authgate">
       <div className="authgate__card">
@@ -88,6 +85,14 @@ export default function App() {
   const [board, setBoard] = useState(null);
   const [job, setJob] = useState(null);
   const [view, setView] = useState("board");
+  // Read ?signin=1 once and strip it right away, signed in or not, so a later
+  // sign-out reload can't bounce the user straight back to Google.
+  const [signinRequested] = useState(
+    () => typeof location !== "undefined" && new URLSearchParams(location.search).has("signin")
+  );
+  useEffect(() => {
+    if (signinRequested) history.replaceState(null, "", location.pathname);
+  }, [signinRequested]);
   // Set when a new user picks "paste it in yourself" on the setup screen.
   const [manualImport, setManualImport] = useState(false);
   const [focus, setFocus] = useState(null);
@@ -471,7 +476,7 @@ export default function App() {
   }, [me, extensionState.checking, extensionState.present, extensionState.status, job, connectExtension, syncExtension]);
 
   if (authed === null) return <div className="loading">loading…</div>;
-  if (!authed) return <AuthGate />;
+  if (!authed) return <AuthGate autoSignIn={signinRequested} />;
   if (!me || !board) return <div className="loading">loading…</div>;
 
   const totalVideos = Object.values(me.counts).reduce((a, b) => a + b, 0);

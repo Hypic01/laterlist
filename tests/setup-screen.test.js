@@ -53,6 +53,20 @@ describe("SetupScreen", () => {
     expect(html).toContain("Copy the collector");
     expect(html).toContain("While you wait");
   });
+  it("shows sorting progress for paste imports outside Chromium", () => {
+    const html = render({ extension: ext({ isChromium: false }),
+      job: { id: 3, state: "running", processed: 25, total: 600 } });
+    expect(html).toContain("Sorting your videos");
+    expect(html).toContain("25 of 600");
+    expect(html).not.toContain("Copy the collector");
+    expect(html).not.toContain("Add to Chrome");
+  });
+  it("shows sorting progress for a Chrome user who pasted instead of installing", () => {
+    const html = render({ job: { id: 4, state: "queued", processed: 0, total: 80 } });
+    expect(html).toContain("Sorting your videos");
+    expect(html).not.toContain("Add to Chrome");
+    expect(html).not.toContain("Copy the collector");
+  });
   it("shows the last failure under the checklist", () => {
     const html = render({ extension: ext({ present: true, connected: true }),
       job: { id: 2, state: "failed", error: "Sorting is temporarily paused." } });

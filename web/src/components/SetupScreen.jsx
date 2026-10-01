@@ -70,6 +70,23 @@ export default function SetupScreen({
   const sorting = Boolean(job && ACTIVE_JOB.has(job.state));
   const failed = job?.state === "failed" && job.error;
 
+  // A paste import (any browser) is sorting without the extension: show the
+  // progress on its own instead of sending the user back through the steps.
+  if (sorting && !connected) {
+    return (
+      <div className="setup">
+        <h2>Sorting your videos</h2>
+        <p className="setup__lead">Your board opens as soon as the first ones land.</p>
+        <ol className="setup__steps">
+          <Step n={1} state="active" busy title="Sorting your videos">
+            <p>{`${Number(job.processed || 0).toLocaleString()} of ${Number(job.total || 0).toLocaleString()} sorted`}</p>
+          </Step>
+        </ol>
+        <TasteChips me={me} />
+      </div>
+    );
+  }
+
   if (!extension?.isChromium) {
     return (
       <div className="setup">
