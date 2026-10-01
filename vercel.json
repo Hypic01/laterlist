@@ -3,6 +3,7 @@
   "buildCommand": "npm run build:web && npm run build:collector && cp collector/dist/collector.js web/dist/collector.js",
   "outputDirectory": "web/dist",
   "framework": null,
+  "regions": ["sfo1"],
   "functions": {
     "api/index.js": { "maxDuration": 60 }
   },

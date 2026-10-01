@@ -21,7 +21,8 @@ export function loadConfig(env = process.env) {
     classifier: env.CLASSIFIER === "haiku" ? "haiku" : "jev",
     openrouterApiKey: env.OPENROUTER_API_KEY || "",
     jevModel: env.JEV_MODEL || "typesafe/jev-1.13",
-    jevConcurrency: Number(env.JEV_CONCURRENCY) || 8,
+    jevConcurrency: Number(env.JEV_CONCURRENCY) || 16,
+    jevChunkSize: Number(env.JEV_CHUNK_SIZE) || 100,
     chunkSize: Number(env.CHUNK_SIZE) || 25,
     batchThreshold: Number(env.BATCH_THRESHOLD) || 500,
 

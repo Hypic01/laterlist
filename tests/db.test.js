@@ -124,6 +124,24 @@ describe("classification results & overrides", () => {
     expect((await db.getVideo(U1, id)).category).toBe("watch");
   });
 
+  it("saveScanResults writes a chunk in one call with the same guard", async () => {
+    const [a, b, c] = vids(3).map((v) => v.id);
+    await db.setCategory(U1, c, "music"); // re-filed by the user: must never be overwritten
+    const n = await db.saveScanResults(U1, [
+      { id: a, category: "watch", reasoning: null, confidence: 0.81, topics: ["design", "tech"] },
+      { id: b, category: "learn", reasoning: "it's \"quoted\" — 한글", confidence: null, topics: [] },
+      { id: c, category: "outdated", reasoning: "", confidence: 0.5, topics: [] },
+    ]);
+    expect(n).toBe(2);
+    const ra = await db.getVideo(U1, a);
+    expect(ra).toMatchObject({ category: "watch", reasoning: "", status: "scanned", topics: ["design", "tech"] });
+    expect(ra.confidence).toBeCloseTo(0.81);
+    expect(await db.getVideo(U1, b)).toMatchObject({ category: "learn", reasoning: 'it\'s "quoted" — 한글', confidence: null });
+    expect((await db.getVideo(U1, c)).category).toBe("music");
+    expect(await db.saveScanResults(U1, [{ id: a, category: "music", topics: [] }])).toBe(0); // already scanned
+    expect(await db.saveScanResults(U1, [])).toBe(0);
+  });
+
   it("manual override wins forever and records override_from once", async () => {
     const id = vids(1)[0].id;
     await db.saveScanResult(U1, id, { category: "entertainment", reasoning: "", confidence: 0.6, topics: [] });
