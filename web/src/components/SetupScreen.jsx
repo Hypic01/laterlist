@@ -27,16 +27,27 @@ function Step({ n, state, busy = false, title, children }) {
 function TasteChips({ me }) {
   const note = me?.tasteProfile?.note ?? "";
   const [picked, setPicked] = useState(() => new Set(me?.tasteProfile?.interests ?? []));
+  const [saveFailed, setSaveFailed] = useState(false);
   const timer = useRef(null);
   const pending = useRef(null);
+  const mounted = useRef(true);
   const flush = () => {
     clearTimeout(timer.current);
     if (!pending.current) return;
     const interests = pending.current;
     pending.current = null;
-    api.saveTaste({ interests, note }).catch(() => {});
+    // A failed save keeps the picks on screen and says so; the retry button
+    // sends the current picks again.
+    api.saveTaste({ interests, note }).then(
+      () => { if (mounted.current) setSaveFailed(false); },
+      () => { if (mounted.current) setSaveFailed(true); },
+    );
   };
-  useEffect(() => flush, []);
+  useEffect(() => () => { mounted.current = false; flush(); }, []);
+  const retry = () => {
+    pending.current = [...picked];
+    flush();
+  };
   const toggle = (t) => {
     const next = new Set(picked);
     next.has(t) ? next.delete(t) : next.add(t);
@@ -57,6 +68,11 @@ function TasteChips({ me }) {
           </button>
         ))}
       </div>
+      {saveFailed ? (
+        <p className="setup__taste-error" role="alert">
+          Couldn't save your picks. <button type="button" onClick={retry}>Try again</button>
+        </p>
+      ) : null}
     </section>
   );
 }
