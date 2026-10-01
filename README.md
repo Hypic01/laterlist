@@ -30,6 +30,10 @@ end to end without Supabase, Anthropic, or Stripe credentials.
     fallback (`CLASSIFIER=haiku`): structured outputs, Batches API over 500 videos
   - `worker.js` — claims jobs (`FOR UPDATE SKIP LOCKED`), chunked processing,
     crash re-adoption, budget kill switch
+  - `background.js` — on Vercel, sorting runs after the response (`waitUntil`)
+    and hands off to a fresh invocation via `/api/cron/advance`, so a sort keeps
+    going with the tab closed. Needs `CRON_SECRET` and `APP_URL` (the production
+    domain) set; polls only restart a job whose run died
   - `billing.js` — Stripe Checkout + Portal + signature-verified webhooks
 - `collector/` — the browser-side Watch Later collector (scroll + Polymer `.data`
   harvest + DOM pruning; validated on a real 2,796-video playlist at 100% of

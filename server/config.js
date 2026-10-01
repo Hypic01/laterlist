@@ -49,7 +49,8 @@ export function loadConfig(env = process.env) {
     pollAdvanceBudgetMs: Number(env.POLL_ADVANCE_BUDGET_MS) || 8000,
     // Background runs (background.js): work per invocation, kept under the
     // function's 60 s maxDuration, and how many hand-offs one job may chain.
-    backgroundBudgetMs: Number(env.BACKGROUND_BUDGET_MS) || 50000,
+    // 40 s leaves room for a chunk started near the deadline plus the hand-off.
+    backgroundBudgetMs: Number(env.BACKGROUND_BUDGET_MS) || 40000,
     backgroundMaxHops: Number(env.BACKGROUND_MAX_HOPS) || 30,
     cronSecret: env.CRON_SECRET || "",
 
