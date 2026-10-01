@@ -47,6 +47,11 @@ export function loadConfig(env = process.env) {
     // polls advance due work in bounded bites, and a cron can backstop.
     serverless: bool(env.VERCEL) || bool(env.SERVERLESS),
     pollAdvanceBudgetMs: Number(env.POLL_ADVANCE_BUDGET_MS) || 8000,
+    // Background runs (background.js): work per invocation, kept under the
+    // function's 60 s maxDuration, and how many hand-offs one job may chain.
+    // 40 s leaves room for a chunk started near the deadline plus the hand-off.
+    backgroundBudgetMs: Number(env.BACKGROUND_BUDGET_MS) || 40000,
+    backgroundMaxHops: Number(env.BACKGROUND_MAX_HOPS) || 30,
     cronSecret: env.CRON_SECRET || "",
 
     // Polar (merchant of record). All four required to enable billing; absent

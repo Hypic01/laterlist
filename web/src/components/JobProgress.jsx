@@ -44,6 +44,9 @@ export default function JobProgress({ job, collection, onCancelled }) {
   if (!job) return null;
   const pct = job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0;
   const waiting = job.state === "awaiting_batch";
+  // Sorting runs server-side either way; only say so when the wait is long
+  // enough that someone might want to leave (small lists finish in seconds).
+  const canLeave = !waiting && job.total >= 200;
   const cancel = async () => {
     try {
       await api.cancelJob(job.id);
@@ -63,6 +66,7 @@ export default function JobProgress({ job, collection, onCancelled }) {
             Big import: this runs in the background for up to an hour. You can close this tab and come back.
           </span>
         )}
+        {canLeave && <span className="syncband__note">You can close this tab. Sorting keeps going.</span>}
         <div className="topbar__spacer" />
         <button className="btn btn--ghost" onClick={cancel}><XIcon size={14} /> Cancel</button>
       </div>

@@ -266,18 +266,22 @@ export function createWorker({
   }
 
   // Advance all due work within a time budget. Serverless entrypoint.
+  // Resolves true if anything was advanced (background runs hand off on it).
   async function tick({ budgetMs = 120000, force = false } = {}) {
-    if (ticking) return;
+    if (ticking) return false;
     ticking = true;
     const deadline = Date.now() + budgetMs;
+    let advanced = false;
     try {
       while (Date.now() < deadline) {
         const worked = await advanceOnce(deadline, { force });
         if (!worked) break;
+        advanced = true;
       }
     } finally {
       ticking = false;
     }
+    return advanced;
   }
 
   return {

@@ -59,6 +59,7 @@ export function createApp({
   auth,
   importer,
   worker,
+  background = null,
   billing,
   mentor,
   transcripts,
@@ -196,18 +197,29 @@ export function createApp({
   // ---- imports & jobs ----
   app.post("/api/imports", auth.jwtOrToken("imports"), async (req, res) => {
     const result = await importer.handleImport(req.user, req.body);
+    // Sort without waiting for a tab to poll. Registered before replying so
+    // the work is attached to this invocation (waitUntil).
+    if (result.body?.jobId) background?.kick();
     res.status(result.status).json(result.body);
   });
 
   app.post("/api/jobs/classify-remaining", auth.required, async (req, res) => {
     const result = await importer.classifyRemaining(req.user);
+    if (result.body?.jobId) background?.kick();
     res.status(result.status).json(result.body);
   });
 
   app.get("/api/jobs/current", auth.required, async (req, res) => {
-    // Serverless mode: the user's own poll is what advances their job.
-    if (worker && config.serverless && (await db.getActiveJob(req.user.id))) {
-      await worker.tick({ budgetMs: config.pollAdvanceBudgetMs }).catch(() => {});
+    // Serverless mode: polls only read. A job nobody is working (no live
+    // lease, e.g. its run crashed) gets a background run restarted; without
+    // background support, fall back to advancing it inside the poll.
+    if (worker && config.serverless) {
+      const active = await db.getActiveJob(req.user.id);
+      if (active && background) {
+        if (!active.lease_until || new Date(active.lease_until) < new Date()) background.kick();
+      } else if (active) {
+        await worker.tick({ budgetMs: config.pollAdvanceBudgetMs }).catch(() => {});
+      }
     }
     const job = (await db.getActiveJob(req.user.id)) || (await db.getLatestJob(req.user.id));
     if (!job) return res.json({ job: null });
@@ -380,10 +392,16 @@ export function createApp({
   }
 
   // Cron backstop (Vercel sends Authorization: Bearer CRON_SECRET): catches
-  // abandoned batch jobs when nobody is polling.
+  // abandoned jobs when nobody is polling. Also the hand-off target for a
+  // background run nearing its time limit (x-background-hop counts the chain).
   app.get("/api/cron/advance", async (req, res) => {
     if (!config.cronSecret || req.headers.authorization !== `Bearer ${config.cronSecret}`) {
       return res.status(401).json({ error: "unauthorized" });
+    }
+    if (background) {
+      const hop = Math.max(0, Math.min(Number.parseInt(req.headers["x-background-hop"], 10) || 0, 1000));
+      background.kick(hop);
+      return res.status(202).json({ ok: true });
     }
     if (worker) await worker.tick({ budgetMs: 50000 }).catch(() => {});
     res.json({ ok: true });

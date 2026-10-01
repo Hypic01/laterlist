@@ -33,4 +33,14 @@ describe("JobProgress", () => {
     expect(running).not.toContain("runs in the background");
     expect(running).toContain("500 / 2,753");
   });
+
+  it("tells people they can leave a long sort, but not a quick one", () => {
+    const render = (total) => renderToStaticMarkup(React.createElement(JobProgress, {
+      job: { id: "9", state: "running", total, processed: 0 },
+      collection: null,
+      onCancelled: () => {},
+    }));
+    expect(render(3323)).toContain("You can close this tab. Sorting keeps going.");
+    expect(render(40)).not.toContain("close this tab");
+  });
 });

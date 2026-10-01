@@ -71,6 +71,17 @@ describe("createJevClassifier", () => {
     expect(waits).toEqual([2000]);
   });
 
+  it("gives up on a hung request instead of waiting forever", async () => {
+    const fake = createFakeJevFetch();
+    const fetchImpl = (url, init) =>
+      JSON.parse(init.body).state.title === "hangs"
+        ? new Promise((_, reject) => init.signal.addEventListener("abort", () => reject(init.signal.reason)))
+        : fake(url, init);
+    const c = createJevClassifier({ apiKey: "", fetchImpl, sleep: async () => {}, requestTimeoutMs: 50 });
+    const { results } = await c.classifyChunk([video("a"), video("b", "hangs")]);
+    expect(results.map((r) => r.id)).toEqual(["a"]);
+  });
+
   it("throws when nothing in the chunk succeeded", async () => {
     const c = createJevClassifier({ apiKey: "", fetchImpl: async () => new Response("down", { status: 400 }), sleep: noSleep });
     await expect(c.classifyChunk([video("a"), video("b")])).rejects.toThrow(/jev 400/);
