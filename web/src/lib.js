@@ -64,3 +64,16 @@ export const INTEREST_OPTIONS = [
   "travel", "health & fitness", "beauty & fashion", "money & business",
   "vlogs & daily life", "cars",
 ];
+
+// A first-run user has never had a video sorted. Imported-but-unsorted videos
+// don't count, so the setup screen stays up until the first sort lands.
+export function isFirstRun(counts) {
+  const c = counts || {};
+  return !((Number(c.scanned) || 0) + (Number(c.done) || 0) + (Number(c.dismissed) || 0));
+}
+
+// The first time a new user's extension shows up, connect and sync for them.
+// Never auto-connect an extension tied to another account.
+export function shouldAutoConnect({ firstRun, checking, present, connected, mismatch, jobActive, attempted }) {
+  return Boolean(firstRun && !checking && present && !connected && !mismatch && !jobActive && !attempted);
+}

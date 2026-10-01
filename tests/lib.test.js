@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { timeAgo, absoluteTime } from "../web/src/lib.js";
+import { timeAgo, absoluteTime, isFirstRun, shouldAutoConnect } from "../web/src/lib.js";
 
 const now = Date.parse("2026-07-21T12:00:00Z");
 const SEC = 1000, MIN = 60 * SEC, HOUR = 60 * MIN, DAY = 24 * HOUR;
@@ -40,5 +40,36 @@ describe("absoluteTime", () => {
     expect(absoluteTime("2026-07-21T12:00:00Z")).toBeTruthy();
     expect(absoluteTime("nope")).toBe("");
     expect(absoluteTime(null)).toBe("");
+  });
+});
+
+describe("isFirstRun", () => {
+  it("is true before anything has been sorted, even with unsorted imports", () => {
+    expect(isFirstRun(undefined)).toBe(true);
+    expect(isFirstRun({})).toBe(true);
+    expect(isFirstRun({ unscanned: 300 })).toBe(true);
+  });
+  it("is false once any video was sorted, done, or dismissed", () => {
+    expect(isFirstRun({ scanned: 1 })).toBe(false);
+    expect(isFirstRun({ done: 2 })).toBe(false);
+    expect(isFirstRun({ dismissed: 1 })).toBe(false);
+  });
+});
+
+describe("shouldAutoConnect", () => {
+  const ready = { firstRun: true, checking: false, present: true, connected: false, mismatch: false, jobActive: false, attempted: false };
+  it("connects a fresh install for a first-run user", () => {
+    expect(shouldAutoConnect(ready)).toBe(true);
+  });
+  it.each([
+    ["not first run", { firstRun: false }],
+    ["still checking", { checking: true }],
+    ["extension missing", { present: false }],
+    ["already connected", { connected: true }],
+    ["tied to another account", { mismatch: true }],
+    ["a sort is running", { jobActive: true }],
+    ["already tried this session", { attempted: true }],
+  ])("stays manual when %s", (_label, patch) => {
+    expect(shouldAutoConnect({ ...ready, ...patch })).toBe(false);
   });
 });
