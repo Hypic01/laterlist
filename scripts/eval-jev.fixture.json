@@ -1,0 +1,18 @@
+[
+  { "id": "fx-learn-1", "title": "How Postgres indexes actually work", "channel": "Hussein Nasser", "duration_seconds": 1840, "published_text": "210K views • 1 year ago", "label": "learn" },
+  { "id": "fx-learn-2", "title": "The psychology of habit formation, explained", "channel": "Veritasium", "duration_seconds": 960, "published_text": "3.1M views • 2 years ago", "label": "learn" },
+  { "id": "fx-learn-3", "title": "How to negotiate your first salary offer", "channel": "Ali Abdaal", "duration_seconds": 1320, "published_text": "890K views • 1 year ago", "label": "learn" },
+  { "id": "fx-watch-1", "title": "A week living alone in Tokyo | vlog", "channel": "Tokyo Lens", "duration_seconds": 1500, "published_text": "420K views • 8 months ago", "label": "watch" },
+  { "id": "fx-watch-2", "title": "Portfolio review: 5 junior product designers", "channel": "Femke", "duration_seconds": 2400, "published_text": "150K views • 5 months ago", "label": "watch" },
+  { "id": "fx-watch-3", "title": "Why this logo works: a design breakdown", "channel": "The Futur", "duration_seconds": 780, "published_text": "600K views • 1 year ago", "label": "watch" },
+  { "id": "fx-music-1", "title": "lofi hip hop radio - beats to relax/study to", "channel": "Lofi Girl", "duration_seconds": 10800, "published_text": "50M views • 3 years ago", "label": "music" },
+  { "id": "fx-music-2", "title": "Boiler Room: Peggy Gou DJ set", "channel": "Boiler Room", "duration_seconds": 3700, "published_text": "8M views • 4 years ago", "label": "music" },
+  { "id": "fx-music-3", "title": "How to make a lofi beat in Ableton (beginner tutorial)", "channel": "Andrew Huang", "duration_seconds": 1100, "published_text": "1.2M views • 3 years ago", "label": "learn" },
+  { "id": "fx-ent-1", "title": "I survived 100 days in hardcore Minecraft", "channel": "Luke TheNotable", "duration_seconds": 3000, "published_text": "12M views • 3 years ago", "label": "entertainment" },
+  { "id": "fx-ent-2", "title": "Worlds 2023 Grand Final highlights", "channel": "LoL Esports", "duration_seconds": 900, "published_text": "4M views • 2 years ago", "label": "entertainment" },
+  { "id": "fx-ent-3", "title": "funniest moments of the week", "channel": "Daily Dose Of Internet", "duration_seconds": 420, "published_text": "6M views • 1 year ago", "label": "entertainment" },
+  { "id": "fx-out-1", "title": "TFT Set 9 best comps tier list (patch 13.14)", "channel": "Mortdog", "duration_seconds": 1200, "published_text": "300K views • 3 years ago", "label": "outdated" },
+  { "id": "fx-out-2", "title": "Create React App full setup tutorial 2019", "channel": "Traversy Media", "duration_seconds": 2700, "published_text": "900K views • 6 years ago", "label": "outdated" },
+  { "id": "fx-out-3", "title": "Figma vs Sketch vs Adobe XD: which should you learn in 2020?", "channel": "DesignCourse", "duration_seconds": 840, "published_text": "400K views • 5 years ago", "label": "outdated" },
+  { "id": "fx-out-4", "title": "Steve Jobs 2005 Stanford commencement address", "channel": "Stanford", "duration_seconds": 915, "published_text": "45M views • 17 years ago", "label": "learn" }
+]

@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jev vs Haiku</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fjalla+One&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --background: #191919; --foreground: #D9D9D9; --card: #212121; --secondary: #2E2E2E;
+    --muted: #9A9A9A; --faint: #6E6E6E; --border: rgba(217,217,217,.10); --border-strong: rgba(217,217,217,.18);
+    --warning: #D9A441; --destructive: #EC614B;
+    --cat-learn: #6695F7; --cat-watch: #70B665; --cat-music: #FFBAC3; --cat-entertainment: #FFDE66; --cat-outdated: #EC614B;
+    --font-display: 'Fjalla One', -apple-system, sans-serif;
+    --font-body: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --background: #D9D9D9; --foreground: #191919; --card: #EDEDED; --secondary: #E4E4E4;
+      --muted: #5A5A5A; --faint: #7C7C7C; --border: rgba(25,25,25,.14); --border-strong: rgba(25,25,25,.24);
+      --warning: #9A6B12; --destructive: #D8452C; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--background); color: var(--foreground); font: 15px/1.6 var(--font-body); }
+  main { max-width: 960px; margin: 0 auto; padding: 48px 16px 96px; }
+  h1, h2 { font-family: var(--font-display); font-weight: 400; letter-spacing: .01em; margin: 0; }
+  h1 { font-size: 40px; line-height: 1.1; }
+  h2 { font-size: 24px; margin: 56px 0 4px; }
+  .sub { color: var(--muted); margin: 6px 0 0; }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .banner { margin-top: 20px; padding: 12px 14px; border: 1px solid var(--warning); border-radius: 8px; color: var(--warning); font-size: 14px; }
+  .how { margin: 28px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; color: var(--muted); font-size: 14px; }
+  .how li::before { content: "·"; margin-right: 8px; color: var(--faint); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 16px; }
+  .tile { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .tile .k { font-size: 13px; color: var(--muted); }
+  .tile .v { font-family: var(--font-display); font-size: 32px; line-height: 1.2; margin-top: 4px; }
+  .tile .n { font-size: 13px; color: var(--faint); }
+  .tile .big { font-family: var(--font-display); font-size: 56px; line-height: 1.05; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .tile.win { border-color: var(--foreground); }
+  .vs { display: grid; gap: 4px; margin-top: 10px; font-size: 14px; }
+  .vs div { display: flex; justify-content: space-between; gap: 8px; }
+  .vs span:first-child { color: var(--muted); }
+  .score { position: sticky; top: 0; z-index: 2; background: var(--background); border-bottom: 1px solid var(--border); margin: 40px -16px 0; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; }
+  .score b { font-family: var(--font-display); font-weight: 400; font-size: 22px; }
+  .score .lead { margin-left: auto; font-size: 14px; color: var(--muted); }
+  .note { color: var(--muted); font-size: 14px; margin: 4px 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 16px; margin-top: 12px; }
+  .card.done { border-color: var(--border-strong); }
+  .thumb { width: 160px; aspect-ratio: 16/9; border-radius: 8px; background: var(--secondary); object-fit: cover; display: block; }
+  .title { font-weight: 500; color: var(--foreground); text-decoration: none; }
+  a.title:hover { text-decoration: underline; }
+  .meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .picks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .pick { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .pick .who { color: var(--faint); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .pick .cat { display: flex; align-items: center; gap: 6px; font-weight: 500; margin-top: 2px; }
+  .pick .why { color: var(--muted); margin-top: 4px; }
+  .pick.right { border-color: var(--foreground); }
+  .pick.wrong { opacity: .55; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .verdict { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; align-items: center; }
+  .verdict .q { font-size: 13px; color: var(--muted); margin-right: 4px; }
+  button { font: 500 13px var(--font-body); color: var(--foreground); background: transparent; border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  button:hover { background: var(--secondary); }
+  button:active { transform: scale(.98); }
+  button.on { background: var(--foreground); color: var(--background); border-color: var(--foreground); }
+  button:focus-visible { outline: 2px solid var(--foreground); outline-offset: 2px; }
+  .tag { font: 500 10px var(--font-mono); color: var(--faint); }
+  button.on .tag { color: var(--background); }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  footer p { margin: 0 auto 0 0; color: var(--muted); font-size: 14px; }
+  @media (max-width: 600px) {
+    h1 { font-size: 32px; }
+    .card { grid-template-columns: 1fr; }
+    .thumb { width: 100%; }
+    .picks { grid-template-columns: 1fr; }
+    .score .lead { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Jev vs Haiku</h1>
+  <p class="sub" id="sub"></p>
+  <div id="banner"></div>
+  <ul class="how">
+    <li>Every video went to both sorters with the same info: title, channel, length, and age. No video content.</li>
+    <li>Haiku is what Laterlist uses today. Jev is the fast, cheap one we are testing.</li>
+    <li>You decide the right row for each video. The score updates as you go and is saved in this browser.</li>
+  </ul>
+
+  <h2>Accuracy on your picks</h2>
+  <div class="grid" id="acc"></div>
+
+  <h2>How the run went</h2>
+  <div class="grid" id="stats"></div>
+
+  <div class="score" id="score"></div>
+
+  <h2 id="dis-h"></h2>
+  <p class="note">These decide the winner. When both sorters pick the same row, they win or lose together.</p>
+  <div id="dis"></div>
+
+  <h2 id="agr-h"></h2>
+  <p class="note">Optional. Check a few to see whether both are making the same mistake.</p>
+  <div class="actions"><button id="agree-all" type="button">Mark every unjudged one here as correct</button></div>
+  <details><summary>Show these videos</summary><div id="agr"></div></details>
+
+  <footer>
+    <p>Verdicts save automatically. Download them to rerun the test on your own labels.</p>
+    <button id="download" type="button">Download my verdicts</button>
+    <button id="reset" type="button">Clear verdicts</button>
+  </footer>
+</main>
+<script>
+const DATA = /*__DATA__*/null;
+const CATS = [["learn", "Learn"], ["watch", "Watch"], ["music", "Music"], ["entertainment", "Fun"], ["outdated", "Outdated"]];
+const NAME = Object.fromEntries(CATS);
+const KEY = "jev-eval-verdicts:" + DATA.ranAt;
+
+let verdicts = {};
+try { verdicts = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch {}
+if (DATA.prefill) for (const v of DATA.videos) if (v.label && !(v.id in verdicts)) verdicts[v.id] = v.label;
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(verdicts)); } catch {} };
+
+const el = (tag, props = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") n.className = v; else if (k === "text") n.textContent = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else n.setAttribute(k, v);
+  }
+  for (const k of kids) if (k != null) n.append(k);
+  return n;
+};
+const dot = (cat) => el("span", { class: "dot", style: `background: var(--cat-${cat})` });
+const pct = (x) => (x == null ? "-" : Math.round(x * 100) + "%");
+const secs = (ms) => (ms == null ? "-" : ms < 1000 ? Math.round(ms) + " ms" : (ms / 1000).toFixed(1) + " s");
+const money = (x) => (x == null ? "-" : "$" + (x < 0.1 ? x.toFixed(3) : x.toFixed(2)));
+const dur = (s) => (s == null ? "" : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`);
+const isYouTubeId = (id) => /^[\w-]{11}$/.test(id);
+
+const agree = (v) => v.haiku && v.jev && v.haiku.category === v.jev.category;
+const dis = DATA.videos.filter((v) => !agree(v));
+const agr = DATA.videos.filter(agree);
+
+document.getElementById("sub").textContent =
+  `${DATA.videos.length} videos · ${DATA.source} · ${new Date(DATA.ranAt).toLocaleString()}`;
+if (DATA.fakes.length) {
+  document.getElementById("banner").append(el("div", { class: "banner",
+    text: `Practice run: ${DATA.fakes.join(" and ")} ${DATA.fakes.length > 1 ? "were" : "was"} simulated, so ${DATA.fakes.length > 1 ? "their" : "its"} picks mean nothing.` }));
+}
+
+function tile(k, v, n, rows) {
+  const t = el("div", { class: "tile" }, el("div", { class: "k", text: k }));
+  if (v) t.append(el("div", { class: "v", text: v }));
+  if (n) t.append(el("div", { class: "n", text: n }));
+  if (rows) t.append(el("div", { class: "vs" }, ...rows.map(([a, b]) => el("div", {}, el("span", { text: a }), el("span", { class: "mono", text: b })))));
+  return t;
+}
+const H = DATA.haiku, J = DATA.jev;
+document.getElementById("stats").append(
+  tile("They picked the same row", pct(agr.length / DATA.videos.length), `${agr.length} of ${DATA.videos.length} videos`),
+  tile("Time for the whole list", null, null, [["Haiku", secs(H.wallMs)], ["Jev", secs(J.wallMs)]]),
+  tile("Cost per 1,000 videos", null, null, [["Haiku", money(H.costPer1kSync)], ["Jev", money(J.costPer1k)]]),
+  tile("Videos that errored", null, null, [["Haiku", H.failedChunks ? `${H.failedChunks} batch of ${H.chunkSize}` : "0"], ["Jev", String(J.failed)]]),
+);
+
+function renderScore() {
+  const judged = DATA.videos.filter((v) => verdicts[v.id] && verdicts[v.id] !== "skip");
+  const h = judged.filter((v) => v.haiku?.category === verdicts[v.id]).length;
+  const j = judged.filter((v) => v.jev?.category === verdicts[v.id]).length;
+  const disJudged = dis.filter((v) => verdicts[v.id] && verdicts[v.id] !== "skip").length;
+  const accTile = (name, right) => el("div", { class: "tile" + (judged.length && right > (name === "Haiku" ? j : h) ? " win" : "") },
+    el("div", { class: "k", text: name }),
+    el("div", { class: "big", text: judged.length ? pct(right / judged.length) : "-" }),
+    el("div", { class: "n", text: judged.length ? `${right} of ${judged.length} judged videos right` : "Judge some videos to see this" }));
+  document.getElementById("acc").replaceChildren(accTile("Haiku", h), accTile("Jev", j));
+  const s = document.getElementById("score");
+  s.replaceChildren(
+    el("span", {}, "Judged ", el("b", { class: "mono", text: `${judged.length}/${DATA.videos.length}` })),
+    el("span", {}, "Haiku right ", el("b", { class: "mono", text: judged.length ? `${h} (${pct(h / judged.length)})` : "-" })),
+    el("span", {}, "Jev right ", el("b", { class: "mono", text: judged.length ? `${j} (${pct(j / judged.length)})` : "-" })),
+    el("span", { class: "lead", text: !disJudged ? "Start with the disagreements below"
+      : disJudged < dis.length ? `${dis.length - disJudged} disagreements left`
+      : h === j ? "Tied" : `${h > j ? "Haiku" : "Jev"} leads by ${Math.abs(h - j)}` }),
+  );
+  document.getElementById("dis-h").textContent = `They disagree (${dis.length})`;
+  document.getElementById("agr-h").textContent = `They agree (${agr.length})`;
+}
+
+function pickBox(who, p, verdict) {
+  const box = el("div", { class: "pick" + (verdict && verdict !== "skip" ? (p?.category === verdict ? " right" : " wrong") : "") },
+    el("div", { class: "who", text: who }));
+  if (!p) { box.append(el("div", { class: "why", text: "Errored, no pick" })); return box; }
+  box.append(el("div", { class: "cat" }, dot(p.category), NAME[p.category],
+    el("span", { class: "mono", style: "color: var(--faint); font-weight: 400", text: p.confidence == null ? "" : `${Math.round(p.confidence * 100)}% sure` })));
+  if (p.reasoning) box.append(el("div", { class: "why", text: p.reasoning }));
+  return box;
+}
+
+function card(v) {
+  const verdict = verdicts[v.id];
+  const url = isYouTubeId(v.id) ? `https://www.youtube.com/watch?v=${v.id}` : null;
+  const thumb = isYouTubeId(v.id)
+    ? el("img", { class: "thumb", src: `https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`, alt: "", loading: "lazy" })
+    : el("div", { class: "thumb" });
+  const title = url ? el("a", { class: "title", href: url, target: "_blank", rel: "noopener", text: v.title }) : el("span", { class: "title", text: v.title });
+  const meta = [v.channel, dur(v.duration), v.age].filter(Boolean).join(" · ");
+  const buttons = CATS.map(([cat, name]) => {
+    const tags = [v.haiku?.category === cat && "H", v.jev?.category === cat && "J"].filter(Boolean).join("");
+    return el("button", { type: "button", class: verdict === cat ? "on" : "", "aria-pressed": String(verdict === cat),
+      onclick: () => { verdicts[v.id] = verdicts[v.id] === cat ? undefined : cat; save(); render(); } },
+      dot(cat), name, tags ? el("span", { class: "tag", text: tags }) : null);
+  });
+  buttons.push(el("button", { type: "button", class: verdict === "skip" ? "on" : "", "aria-pressed": String(verdict === "skip"),
+    onclick: () => { verdicts[v.id] = verdicts[v.id] === "skip" ? undefined : "skip"; save(); render(); } }, "Not sure"));
+  return el("div", { class: "card" + (verdict ? " done" : "") },
+    url ? el("a", { href: url, target: "_blank", rel: "noopener", "aria-label": "Open on YouTube" }, thumb) : thumb,
+    el("div", {},
+      title, el("div", { class: "meta", text: meta }),
+      el("div", { class: "picks" }, pickBox("Haiku", v.haiku, verdict), pickBox("Jev", v.jev, verdict)),
+      el("div", { class: "verdict" }, el("span", { class: "q", text: "Right row:" }), ...buttons)));
+}
+
+function render() {
+  const y = window.scrollY;
+  document.getElementById("dis").replaceChildren(...dis.map(card));
+  document.getElementById("agr").replaceChildren(...agr.map(card));
+  renderScore();
+  window.scrollTo(0, y);
+}
+
+document.getElementById("agree-all").addEventListener("click", () => {
+  for (const v of agr) if (!verdicts[v.id]) verdicts[v.id] = v.haiku.category;
+  save(); render();
+});
+document.getElementById("reset").addEventListener("click", () => {
+  if (!confirm("Clear every verdict on this page?")) return;
+  verdicts = {}; try { localStorage.removeItem(KEY); } catch {} render();
+});
+document.getElementById("download").addEventListener("click", () => {
+  const rows = DATA.videos.map((v) => ({ id: v.id, title: v.title, channel: v.channel, duration_seconds: v.duration,
+    published_text: v.age, label: verdicts[v.id] && verdicts[v.id] !== "skip" ? verdicts[v.id] : "" }));
+  const a = el("a", { href: URL.createObjectURL(new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" })),
+    download: `jev-verdicts-${DATA.ranAt.slice(0, 10)}.json` });
+  document.body.append(a); a.click(); a.remove();
+});
+render();
+</script>
+</body>
+</html>

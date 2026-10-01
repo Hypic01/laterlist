@@ -15,6 +15,13 @@ export function loadConfig(env = process.env) {
     anthropicApiKey: env.ANTHROPIC_API_KEY || "",
     fakeLlm: bool(env.FAKE_LLM),
     classifyModel: env.CLASSIFY_MODEL || "claude-haiku-4-5",
+    // Sorting engine: Jev (default) or Haiku. Without OPENROUTER_API_KEY, boot
+    // falls back to Haiku when an Anthropic key exists, so a deploy that
+    // forgot the key degrades instead of switching sorting off.
+    classifier: env.CLASSIFIER === "haiku" ? "haiku" : "jev",
+    openrouterApiKey: env.OPENROUTER_API_KEY || "",
+    jevModel: env.JEV_MODEL || "typesafe/jev-1.13",
+    jevConcurrency: Number(env.JEV_CONCURRENCY) || 8,
     chunkSize: Number(env.CHUNK_SIZE) || 25,
     batchThreshold: Number(env.BATCH_THRESHOLD) || 500,
 

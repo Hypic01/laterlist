@@ -5,6 +5,7 @@
 // structured outputs; validateResults stays as the second line of defense.
 
 import { CATEGORIES } from "./db.js";
+import { estimateCostUsd } from "./config.js";
 
 export class ClassificationError extends Error {}
 
@@ -58,22 +59,33 @@ function persona(tasteProfile = {}) {
 }
 
 const RULES = `Classify each video into exactly one category:
-- "learn": informational content worth learning from — tutorials, talks, explainers,
-  how-tos, news analysis, career or skill advice. The value is the information itself.
-- "watch": the value needs eyes on the screen — vlogs, travel, visual inspiration,
-  AND informational topics where the visuals carry the lesson (design breakdowns,
-  technique demonstrations, portfolio reviews).
+- "learn": a good written summary would give the viewer ~95% of what the video
+  offers — the value is in what is SAID: talks, explainers, interviews, advice, news
+  analysis, and how-tos whose steps can be written down. Interviews, podcasts and
+  conversations are learn even when the topic is visual. Walkthroughs of AI tools
+  and apps are learn: a written step list captures them.
+- "watch": a summary would lose a significant part because the SCREEN carries it — a
+  workflow or tool being demonstrated live, designs or visual work being shown,
+  physical technique, vlogs, travel and places, visual inspiration. Visual-craft
+  how-tos you need to SEE done are watch: filming and cinematography, video editing,
+  animation and motion, hands-on design-tool technique (e.g. Figma), hair and makeup.
+  When unsure between learn and watch, choose learn.
 - "music": the point is LISTENING — tracks, albums, mixes, DJ sets, live sets,
   "1 hour of X" compilations. Music-making TUTORIALS are not music (learn or watch).
   Music is never outdated.
-- "entertainment": fun is the point — gaming, memes, streamers, esports matches,
-  variety shows. Pure entertainment is never outdated, regardless of age.
-- "outdated": informational content whose information has been superseded. Judge by
-  content, not age (a tutorial for a long-replaced tool version is outdated; an old
-  talk on timeless principles is not). IMPORTANT: game guides and meta analysis tied
-  to a specific season, patch, set, or meta that has since passed count as
+- "entertainment": fun is the point — gaming, memes, streamers, esports matches and
+  highlights, variety shows. Personality- or celebrity-driven videos where the person
+  is the draw (creator collabs, idols, influencers' daily life) are entertainment
+  even when framed as tips. Pure entertainment is never outdated, regardless of age.
+- "outdated": informational content whose information has been superseded. Only
+  informational content can be outdated. AI tools and coding-stack tutorials
+  (frameworks, libraries, app builds): about 1 year or older is outdated. Other tech
+  and gadgets: about 2 years or older. Everything else is judged by content, NEVER
+  by age alone — health, fitness, psychology, habits, career, money basics, history
+  and fundamentals stay current. IMPORTANT: game guides, tips and meta analysis
+  tied to a season, patch, set, or meta that has since passed count as
   informational and ARE outdated — guide-style gaming content is not protected by
-  the entertainment rule.
+  the entertainment rule. Game tips framed as timeless or universal are not.
 Precedence when categories overlap: music > outdated > watch > learn.
 
 You are judging from METADATA ONLY — title, channel, duration, age. There is no
@@ -143,4 +155,18 @@ export function validateResults(data, expectedIds) {
     throw new ClassificationError("returned ids do not match the batch");
   }
   return results;
+}
+
+// The worker-facing classifier over the Haiku adapter (see server/jev.js for
+// the default). One prompt per chunk; supports the Batches path for big jobs.
+export function createHaikuClassifier({ llm }) {
+  return {
+    supportsBatch: true,
+    async classifyChunk(videos, opts = {}) {
+      const { data, usage } = await llm.classifyChunk(buildClassificationPrompt(videos, opts), RESULT_SCHEMA);
+      const results = validateResults(data, videos.map((v) => v.id));
+      const costUsd = estimateCostUsd({ inputTokens: usage.input, outputTokens: usage.output, batch: false });
+      return { results, usage: { ...usage, costUsd } };
+    },
+  };
 }

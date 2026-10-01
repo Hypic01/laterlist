@@ -38,7 +38,8 @@ export function createImporter({ db, config }) {
   }
 
   async function startJob(user, dbUser, tier, total) {
-    const mode = total > config.batchThreshold ? "batch" : "sync";
+    // Only Haiku has a batch API; Jev sorts thousands in seconds synchronously.
+    const mode = total > config.batchThreshold && config.classifier === "haiku" ? "batch" : "sync";
     return db.createJob(user.id, { mode, tier, total });
   }
 
