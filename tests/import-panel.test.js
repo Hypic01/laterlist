@@ -25,7 +25,7 @@ describe("ImportPanel extension priority", () => {
     expect(html).toContain("chromewebstore.google.com");
     expect(html).toContain("<summary>Prefer not to install? Paste manually</summary>");
     expect(html).toContain("Copy the collector");
-    expect(html).not.toContain("Sync your Watch Later</button>");
+    expect(html).not.toContain("Sync new videos</button>");
   });
 
   it("opens the manual flow when the user already chose to paste", () => {
@@ -58,9 +58,24 @@ describe("ImportPanel extension priority", () => {
       }),
     );
 
-    expect(html).toContain("Sync your Watch Later</button>");
+    expect(html).toContain("Sync new videos</button>");
     expect(html).toContain("<details class=\"importer__manual\">");
     expect(html).toContain("<summary>Import manually instead</summary>");
     expect(html).toContain("Copy the collector");
+  });
+
+  // Settings' "Import manually" lands here, so the paste steps must already be open.
+  it("opens the manual flow for a connected user who asked to import manually", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ImportPanel, {
+        ...baseProps,
+        extension: { ...baseProps.extension, present: true, connected: true },
+        extensionConnected: true,
+        manualOpen: true,
+      }),
+    );
+
+    expect(html).toContain("<details class=\"importer__manual\" open=\"\">");
+    expect(html).toContain("<summary>Import manually instead</summary>");
   });
 });

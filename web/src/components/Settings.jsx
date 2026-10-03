@@ -16,6 +16,8 @@ export default function Settings({
   extension,
   onConnectExtension,
   extensionBusy,
+  extensionConnected = false,
+  onImportManually,
 }) {
   const [busy, setBusy] = useState(false);
   const [tokens, setTokens] = useState([]);
@@ -192,6 +194,16 @@ export default function Settings({
           <button className="btn btn--ghost" onClick={onRetakeQuiz}>Edit</button>
         </div>
       </div>
+
+      {extensionConnected ? (
+        <div className="settings__block">
+          <h3>Manual import</h3>
+          <div className="settings__row">
+            <p>The extension syncs your Watch Later for you. You can still paste your list in by hand.</p>
+            <button className="btn btn--ghost" onClick={onImportManually}>Import manually</button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="settings__block">
         <div className="settings__section-head">

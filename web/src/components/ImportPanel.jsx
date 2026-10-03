@@ -136,7 +136,7 @@ export default function ImportPanel({
   const canUseExtension = Boolean(extension?.isChromium);
 
   const lead = extensionConnected
-    ? "Your extension is ready. Sync your complete Watch Later directly from your browser."
+    ? "Your extension is ready. Sync pulls in your newest saves. Your first sync pulls in the whole list."
     : canUseExtension
       ? "Add the Chrome extension and your whole Watch Later syncs in one click. You can still paste it in yourself if you'd rather not install anything."
       : "YouTube doesn't let any app read your Watch Later directly, so you export it yourself, in your own browser. Large libraries can take a few minutes. Nothing to install.";
@@ -159,10 +159,10 @@ export default function ImportPanel({
             </div>
             <button className="btn btn--primary importer__sync-button" type="button"
               disabled={extensionSyncing} onClick={onSyncExtension}>
-              <SyncIcon size={15} /> {extensionSyncing ? "Syncing…" : "Sync your Watch Later"}
+              <SyncIcon size={15} /> {extensionSyncing ? "Syncing…" : "Sync new videos"}
             </button>
           </section>
-          <details className="importer__manual">
+          <details className="importer__manual" open={manualOpen}>
             <summary>Import manually instead</summary>
             {manualImport}
           </details>
