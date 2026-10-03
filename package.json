@@ -9,6 +9,7 @@
     "build:web": "vite build --config web/vite.config.js",
     "build:collector": "node collector/build-snippet.js",
     "build:extension": "node extension/build-extension.js",
+    "publish:extension": "node scripts/publish-extension.js",
     "migrate": "node server/migrate.js",
     "test": "vitest run"
   },

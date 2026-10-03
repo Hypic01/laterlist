@@ -18,6 +18,42 @@ end to end without Supabase, Anthropic, or Stripe credentials.
 
     npm test                                  # vitest — DB tests run on PGlite (real Postgres in WASM)
 
+## Publishing the extension
+
+Uses [Chrome Web Store API v2](https://developer.chrome.com/docs/webstore/using-api)
+to update Laterlist item `iggeklmapgdaknfdblkhefnfaflbojeg` and submit it for
+review. Bump `extension/manifest.json`'s version before each upload.
+
+One-time setup: create a Google Cloud project, enable the Chrome Web Store API,
+and configure its OAuth consent screen. For the OAuth Playground, Google's
+current guide requires a **Web application** OAuth client with authorized redirect
+URI `https://developers.google.com/oauthplayground` (a Desktop app client is for
+a local installed-app authorization flow, not this Playground setup). In the
+[OAuth Playground](https://developers.google.com/oauthplayground), enable "Use
+your own OAuth credentials", enter that client's ID and secret, authorize scope
+`https://www.googleapis.com/auth/chromewebstore` using the account that owns the
+listing, then exchange the authorization code for a refresh token. Find the
+publisher ID under Publisher > Settings in the Chrome Web Store developer dashboard.
+
+Put `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`, and
+`CWS_PUBLISHER_ID` in your local, ignored `.env`; never commit credentials.
+The script reads the environment only. Export those values into your shell
+before running:
+
+```sh
+set -a
+. ./.env
+set +a
+npm run publish:extension
+# Build and validate without any network requests:
+node scripts/publish-extension.js --dry-run
+```
+
+Missing variables stop the publisher before any network request. Upload failures
+stop submission; asynchronous uploads are polled until success or a bounded
+timeout. The existing extension builder produces the store zip. Direct script
+invocations also build it, so the npm command rebuilds it before publishing.
+
 ## Architecture
 
 - `server/` — Express API + in-process classification worker.
