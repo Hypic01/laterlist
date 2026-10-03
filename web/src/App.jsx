@@ -598,16 +598,22 @@ export default function App() {
           <h1>laterlist</h1>
         </button>
         <div className="topbar__spacer" />
+        {/* One way in: Sync once the extension is connected (manual import lives
+            in Settings), Import until then. */}
         {extensionConnected ? (
-          <button className="btn btn--ghost" disabled={extensionSyncing} onClick={syncExtension}
-            aria-label={extensionSyncing ? "Syncing" : "Sync"} title="Sync from YouTube">
+          <button className="btn btn--primary" disabled={extensionSyncing} onClick={syncExtension}
+            aria-label={extensionSyncing ? "Syncing" : "Sync"}
+            title={me.lastImportAt
+              ? `Sync from YouTube. Last imported ${timeAgo(me.lastImportAt)} (${absoluteTime(me.lastImportAt)})`
+              : "Sync from YouTube"}>
             <SyncIcon size={15} /> <span className="btn__label">{extensionSyncing ? "Syncing…" : "Sync"}</span>
           </button>
-        ) : null}
-        <button className="btn btn--primary" onClick={() => { setFocus(null); setView("import"); }}
-          title={me.lastImportAt ? `Last imported ${timeAgo(me.lastImportAt)} (${absoluteTime(me.lastImportAt)})` : undefined}>
-          <UploadIcon size={15} /> Import
-        </button>
+        ) : (
+          <button className="btn btn--primary" onClick={() => { setFocus(null); setView("import"); }}
+            title={me.lastImportAt ? `Last imported ${timeAgo(me.lastImportAt)} (${absoluteTime(me.lastImportAt)})` : undefined}>
+            <UploadIcon size={15} /> Import
+          </button>
+        )}
         <button className="btn btn--ghost btn--icon" onClick={() => { setFocus(null); setView("settings"); }} aria-label="Settings" title="Settings">
           <SettingsIcon size={15} />
         </button>
@@ -631,7 +637,8 @@ export default function App() {
           <Settings me={me} onBack={() => setView("board")} onToast={showToast}
             onRetakeQuiz={() => { api.saveTaste({ interests: [], note: "" }); setView("quiz"); }}
             extension={extension} onConnectExtension={connectExtension}
-            extensionBusy={extensionBusy} />
+            extensionBusy={extensionBusy} extensionConnected={extensionConnected}
+            onImportManually={() => { setManualImport(true); setView("import"); }} />
         ) : view === "quiz" ? (
           <Onboarding onDone={() => reload().then(() => setView("board"))} />
         ) : view === "import" ? (
