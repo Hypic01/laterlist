@@ -870,6 +870,10 @@ button { font-family: inherit; cursor: pointer; }
   font-family: var(--font-mono); font-size: 9.5px; font-variant-numeric: tabular-nums;
 }
 .detail__move { background-color: var(--color-surface-raised); }
+.detail__note { margin-top: var(--space-3); color: var(--color-muted); font-size: 12.5px; }
+@media (hover: hover) {
+  .detail__note { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 .detail__error {
   margin-top: var(--space-4); color: var(--color-destructive);
   border: 1px solid color-mix(in srgb, var(--color-destructive) 32%, var(--color-border));

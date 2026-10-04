@@ -25,7 +25,7 @@ export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDeta
   const [dead, setDead] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   // A private or deleted video has no content to summarize, so TL;DR stays off its card.
-  const unavailable = dead || /^\[(private|deleted) video\]$/i.test(video.title);
+  const unavailable = /^\[(private|deleted) video\]$/i.test(video.title);
   const thumb = `https://i.ytimg.com/vi/${video.id}/${fallback ? "hqdefault" : "hq720"}.jpg`;
   const ytUrl = `https://www.youtube.com/watch?v=${video.id}`;
   return (
