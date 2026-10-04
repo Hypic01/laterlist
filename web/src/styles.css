@@ -830,15 +830,6 @@ button { font-family: inherit; cursor: pointer; }
 .detail__player {
   width: 100%; aspect-ratio: 16/9; display: block; border: 0; background: #000;
 }
-.detail__playerbar {
-  display: flex; align-items: center; gap: var(--space-4);
-  padding: var(--space-3) var(--space-1) 0;
-}
-.detail__playerbar p { flex: 1; color: var(--color-foreground); font-size: 13px; }
-.detail__playerbar p span {
-  display: block; margin-top: 2px; color: var(--color-muted); font-size: 12px;
-}
-.detail__playerbar .btn { flex: 0 0 auto; }
 .detail__head { margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
 .detail__title {
   max-width: 32ch; font-family: var(--font-display); font-weight: 400; letter-spacing: -.004em; font-size: clamp(26px, 3.4vw, 40px);
@@ -950,12 +941,34 @@ button { font-family: inherit; cursor: pointer; }
 @media (max-width: 680px) {
   .detail__title { font-size: 22px; }
   .detail__player, .detail__thumb { min-height: 200px; }
-  .detail__playerbar { align-items: stretch; flex-direction: column; }
-  .detail__playerbar .btn { justify-content: center; width: 100%; }
   .detail__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detail__actions .topbar__spacer { display: none; }
   .detail__actions > .btn, .detail__actions > a.btn, .detail__move {
     width: 100%; min-width: 0; justify-content: center;
   }
-  .detail__actions > a.btn { grid-column: 1 / -1; }
+  .detail__actions > a.btn, .detail__actions > .btn--primary { grid-column: 1 / -1; }
+}
+
+/* ---------- Tooltips ----------
+   One delayed tooltip for icon buttons and terse actions: data-tip="…" on the
+   element. Waits a beat before showing so it never flickers on a pass-through,
+   hides at once on leave. Below and right-aligned by default; data-tip-pos="above"
+   for controls near a clipping edge, data-tip-align="start" for left-side buttons. */
+@media (hover: hover) {
+  [data-tip] { position: relative; }
+  [data-tip]::after {
+    content: attr(data-tip); position: absolute; z-index: 40; right: 0; top: calc(100% + 8px);
+    width: max-content; max-width: 240px; padding: 6px 10px; pointer-events: none;
+    background: var(--foreground); color: var(--background);
+    font: 500 12px/1.4 var(--font-body); letter-spacing: 0; text-transform: none; white-space: normal; text-align: left;
+    border-radius: var(--radius-sm); box-shadow: var(--shadow-raised);
+    opacity: 0; transform: translateY(-3px);
+    transition: opacity 120ms var(--ease), transform 120ms var(--ease);
+  }
+  [data-tip-pos="above"]::after { top: auto; bottom: calc(100% + 8px); transform: translateY(3px); }
+  [data-tip-align="start"]::after { right: auto; left: 0; }
+  [data-tip]:hover::after, [data-tip]:focus-visible::after {
+    opacity: 1; transform: none; transition-delay: 800ms;
+  }
+  [aria-expanded="true"][data-tip]::after { display: none; }
 }

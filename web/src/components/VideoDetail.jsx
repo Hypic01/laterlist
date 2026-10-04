@@ -298,18 +298,6 @@ export default function VideoDetail({
           </button>
         )}
       </div>
-      <div className="detail__playerbar">
-        <p>
-          {playing ? "Playing inside Laterlist." : "Watch without leaving Laterlist."}
-          <span>Mark watched hides it from this board. Your YouTube Watch Later stays unchanged.</span>
-        </p>
-        <button className="btn btn--ghost" onClick={markWatched}
-          disabled={doneState !== "idle"}>
-          <CheckIcon size={14} />
-          {doneState === "saving" ? "Marking…" : doneState === "done" ? "Marked watched" : "Mark watched"}
-        </button>
-      </div>
-
       <div className="detail__head">
         <h2 className="detail__title">{video.title}</h2>
         {meta ? <div className="detail__meta">{meta}</div> : null}
@@ -330,9 +318,13 @@ export default function VideoDetail({
         {detailError ? <div className="detail__error" role="alert">{detailError}</div> : null}
       </div>
 
+      {/* One bar: the filled button is the screen's job (decide this video's fate);
+          features sit beside it, row moves and dismissal on the right. */}
       <div className="detail__actions">
-        <button className="btn btn--primary" onClick={learn}>
-          {freePlan ? <LockIcon size={14} /> : <LearnIcon size={15} />} Learn
+        <button className="btn btn--primary" onClick={markWatched} disabled={doneState !== "idle"}
+          data-tip-align="start" data-tip="Hides it from this board. Your YouTube Watch Later stays unchanged.">
+          <CheckIcon size={14} />
+          {doneState === "saving" ? "Marking…" : doneState === "done" ? "Marked watched" : "Mark watched"}
         </button>
         <button className="btn btn--ghost detail__summary-button" onClick={loadSummary}
           disabled={detailLoading || SUMMARY_BUSY.has(summaryState)}
@@ -344,6 +336,9 @@ export default function VideoDetail({
               {summaryUsed.toLocaleString()}/{summaryQuota.toLocaleString()}
             </span>
           ) : null}
+        </button>
+        <button className="btn btn--ghost" onClick={learn}>
+          {freePlan ? <LockIcon size={14} /> : <LearnIcon size={15} />} Learn
         </button>
         <a className="btn btn--ghost" href={ytUrl} target="_blank" rel="noreferrer">
           <ExternalIcon size={15} /> Open on YouTube

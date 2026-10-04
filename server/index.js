@@ -11,6 +11,11 @@ const webDist = path.join(repoRoot, "web", "dist");
 if (fs.existsSync(webDist)) {
   app.use(express.static(webDist));
   app.get(["/app", "/app/*path"], (req, res) => res.sendFile(path.join(webDist, "app", "index.html")));
+  // Unknown pages get the designed 404 (Vercel serves the same file for its static misses).
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api/")) return next();
+    res.status(404).sendFile(path.join(webDist, "404.html"));
+  });
 } else {
   app.get("/", (req, res) => res.type("text/plain").send("laterlist API. Frontend not built — run: npm run build:web"));
 }

@@ -24,6 +24,8 @@ export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDeta
   // Deleted/private videos still answer hqdefault, with YouTube's 120x90 grey placeholder.
   const [dead, setDead] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // A private or deleted video has no content to summarize, so TL;DR stays off its card.
+  const unavailable = dead || /^\[(private|deleted) video\]$/i.test(video.title);
   const thumb = `https://i.ytimg.com/vi/${video.id}/${fallback ? "hqdefault" : "hq720"}.jpg`;
   const ytUrl = `https://www.youtube.com/watch?v=${video.id}`;
   return (
@@ -60,12 +62,14 @@ export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDeta
         {/* The features live on the card face so they can be discovered;
             housekeeping actions live behind the kebab. */}
         <div className="card__actions">
-          <button onClick={() => onTldr?.(video)} aria-label={`TL;DR for "${video.title}"`}>
-            <SparklesIcon size={13} /> TL;DR
-          </button>
+          {!unavailable && (
+            <button onClick={() => onTldr?.(video)} aria-label={`TL;DR for "${video.title}"`}>
+              <SparklesIcon size={13} /> TL;DR
+            </button>
+          )}
           <div className="card__menuwrap">
             <button className="card__kebab" aria-haspopup="menu" aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((o) => !o)} aria-label="More actions" title="More actions">
+              onClick={() => setMenuOpen((o) => !o)} aria-label="More actions" data-tip="More actions" data-tip-pos="above">
               <MoreIcon size={14} />
             </button>
             {menuOpen && (

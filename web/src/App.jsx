@@ -614,7 +614,7 @@ export default function App() {
             <UploadIcon size={15} /> Import
           </button>
         )}
-        <button className="btn btn--ghost btn--icon" onClick={() => { setFocus(null); setView("settings"); }} aria-label="Settings" title="Settings">
+        <button className="btn btn--ghost btn--icon" onClick={() => { setFocus(null); setView("settings"); }} aria-label="Settings" data-tip="Settings">
           <SettingsIcon size={15} />
         </button>
       </header>

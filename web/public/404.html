@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page not found · Laterlist</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#191919" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23191919'/%3E%3Cg fill='none' stroke='%23D9D9D9' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' transform='translate(4 4)'%3E%3Cpath d='M4 6h10M4 12h10M4 18h6'/%3E%3Cpath d='M15 15l3 3 4-5'/%3E%3C/g%3E%3C/svg%3E" />
+  <script>try{if(localStorage.getItem('laterlist:theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fjalla+One&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* Tokens mirror web/src/styles.css (dark default, light override). */
+    :root { color-scheme: dark; --background: #191919; --foreground: #D9D9D9; --card: #212121; --secondary: #2E2E2E;
+      --muted: #9A9A9A; --faint: #6E6E6E; --border: rgba(217,217,217,.10); --border-strong: rgba(217,217,217,.18);
+      --cat-outdated: #EC614B; }
+    :root[data-theme="light"] { color-scheme: light; --background: #D9D9D9; --foreground: #191919; --card: #EDEDED;
+      --secondary: #E4E4E4; --muted: #5A5A5A; --faint: #7C7C7C; --border: rgba(25,25,25,.14); --border-strong: rgba(25,25,25,.24); }
+    * { box-sizing: border-box; margin: 0; }
+    body { min-height: 100vh; display: grid; place-items: center; padding: 48px 16px;
+      background: var(--background); color: var(--foreground); font: 16px/1.6 'Inter', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    main { width: min(560px, 100%); }
+    .code { font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+    h1 { font: 400 clamp(36px, 8vw, 52px)/1.05 'Fjalla One', sans-serif; letter-spacing: -.01em; margin-top: 14px; }
+    p { color: var(--muted); margin-top: 14px; max-width: 44ch; }
+    /* An empty shelf, drawn like the board's rows */
+    .shelf { margin-top: 32px; }
+    .shelf__head { display: flex; align-items: center; gap: 9px; }
+    .shelf__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--cat-outdated); box-shadow: 0 0 12px -2px var(--cat-outdated); }
+    .shelf__name { font: 400 17px 'Fjalla One', sans-serif; }
+    .shelf__n { font: 10.5px 'JetBrains Mono', monospace; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+    .shelf__track { display: flex; gap: 12px; margin-top: 10px; }
+    .slot { flex: 1; aspect-ratio: 16/9; border: 1px dashed var(--border-strong); border-radius: 7px; }
+    .slot:nth-child(2) { opacity: .6; } .slot:nth-child(3) { opacity: .3; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 32px; }
+    .btn { display: inline-flex; align-items: center; padding: 11px 20px; border-radius: 7px; border: 1px solid transparent;
+      font-size: 14px; font-weight: 600; text-decoration: none; transition: background 200ms, border-color 200ms, transform 120ms; }
+    .btn:active { transform: scale(.98); }
+    .btn--primary { background: var(--foreground); color: var(--background); }
+    .btn--primary:hover { background: color-mix(in srgb, var(--foreground) 82%, var(--background)); }
+    .btn--ghost { background: var(--secondary); border-color: var(--border); color: var(--foreground); font-weight: 500; }
+    .btn--ghost:hover { border-color: var(--border-strong); }
+  </style>
+</head>
+<body>
+<main>
+  <div class="code">404 · not found</div>
+  <h1>Nothing on this shelf.</h1>
+  <p>This page isn't in anyone's Watch Later, including ours. It may have aged out, or the link has a typo.</p>
+  <div class="shelf" aria-hidden="true">
+    <div class="shelf__head"><span class="shelf__dot"></span><span class="shelf__name">Outdated</span><span class="shelf__n">0</span></div>
+    <div class="shelf__track"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
+  </div>
+  <div class="actions">
+    <a class="btn btn--primary" href="/app">Back to your board</a>
+    <a class="btn btn--ghost" href="/">Home</a>
+  </div>
+</main>
+</body>
+</html>
