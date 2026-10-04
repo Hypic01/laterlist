@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { formatDuration } from "../lib.js";
 import {
   CheckIcon,
@@ -8,6 +8,7 @@ import {
   SparklesIcon,
   XIcon,
 } from "./icons.jsx";
+import FloatingMenu from "./FloatingMenu.jsx";
 
 // Display names match the board's row titles; keys stay the API's category ids.
 export const CATEGORIES = [
@@ -26,6 +27,7 @@ export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDeta
   const [menuOpen, setMenuOpen] = useState(false);
   // A private or deleted video has no content to summarize, so TL;DR stays off its card.
   const unavailable = /^\[(private|deleted) video\]$/i.test(video.title);
+  const kebabRef = useRef(null);
   const thumb = `https://i.ytimg.com/vi/${video.id}/${fallback ? "hqdefault" : "hq720"}.jpg`;
   const ytUrl = `https://www.youtube.com/watch?v=${video.id}`;
   return (
@@ -68,38 +70,35 @@ export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDeta
             </button>
           )}
           <div className="card__menuwrap">
-            <button className="card__kebab" aria-haspopup="menu" aria-expanded={menuOpen}
+            <button ref={kebabRef} className="card__kebab" aria-haspopup="menu" aria-expanded={menuOpen}
               onClick={() => setMenuOpen((o) => !o)} aria-label="More actions" data-tip="More actions" data-tip-pos="above">
               <MoreIcon size={14} />
             </button>
             {menuOpen && (
-              <>
-                <div className="menu-backdrop" onClick={() => setMenuOpen(false)} />
-                <div className="card__menu" role="menu">
-                  <a href={ytUrl} target="_blank" rel="noreferrer" role="menuitem"
-                    onClick={() => setMenuOpen(false)}>
-                    <ExternalIcon size={12} /> Open on YouTube
-                  </a>
-                  {CATEGORIES.filter((c) => c.key !== video.category).map((c) => (
-                    <button key={c.key} role="menuitem"
-                      onClick={() => { setMenuOpen(false); onMove(video.id, c.key); }}>
-                      <span className="card__menu-dot" style={{ background: `var(--cat-${c.key})` }} />
-                      Move to {c.label}
-                    </button>
-                  ))}
-                  <button role="menuitem"
-                    onClick={() => { setMenuOpen(false); onDone(video.id); }}>
-                    <CheckIcon size={12} /> Watched it, remove
+              <FloatingMenu anchorRef={kebabRef} onClose={() => setMenuOpen(false)} label="More actions">
+                <a href={ytUrl} target="_blank" rel="noreferrer" role="menuitem"
+                  onClick={() => setMenuOpen(false)}>
+                  <ExternalIcon size={12} /> Open on YouTube
+                </a>
+                {CATEGORIES.filter((c) => c.key !== video.category).map((c) => (
+                  <button key={c.key} role="menuitem"
+                    onClick={() => { setMenuOpen(false); onMove(video.id, c.key); }}>
+                    <span className="card__menu-dot" style={{ background: `var(--cat-${c.key})` }} />
+                    Move to {c.label}
                   </button>
-                  <button role="menuitem" className="menu-danger"
-                    onClick={() => { setMenuOpen(false); onDismiss(video.id); }}>
-                    <XIcon size={12} /> Not interested, remove
-                  </button>
-                  <div className="card__menu-hint">
-                    <SparklesIcon size={11} /> Moves teach the AI your taste
-                  </div>
+                ))}
+                <button role="menuitem"
+                  onClick={() => { setMenuOpen(false); onDone(video.id); }}>
+                  <CheckIcon size={12} /> Watched it, remove
+                </button>
+                <button role="menuitem" className="menu-danger"
+                  onClick={() => { setMenuOpen(false); onDismiss(video.id); }}>
+                  <XIcon size={12} /> Not interested, remove
+                </button>
+                <div className="popmenu__hint">
+                  <SparklesIcon size={11} /> Moves teach the AI your taste
                 </div>
-              </>
+              </FloatingMenu>
             )}
           </div>
         </div>

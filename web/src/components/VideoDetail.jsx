@@ -7,13 +7,13 @@ import {
   CheckIcon,
   ExternalIcon,
   LearnIcon,
-  LockIcon,
   PlayIcon,
   SparklesIcon,
   SummaryIcon,
   XIcon,
   ZapIcon,
 } from "./icons.jsx";
+import FloatingMenu from "./FloatingMenu.jsx";
 
 const SUMMARY_BUSY = new Set(["fetching", "summarizing"]);
 
@@ -42,12 +42,13 @@ export default function VideoDetail({
   onDone,
   onToast,
   onSummaryUsed,
-  onLearn,
 }) {
   const [video, setVideo] = useState(preview);
   const [detailLoading, setDetailLoading] = useState(true);
   const [detailError, setDetailError] = useState("");
   const [fallback, setFallback] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const moveRef = useRef(null);
   const [playing, setPlaying] = useState(intent === "play");
   const [doneState, setDoneState] = useState("idle");
   const [summary, setSummary] = useState(null);
@@ -216,15 +217,7 @@ export default function VideoDetail({
     }
   };
 
-  const learn = () => {
-    if (freePlan) {
-      setUpgradeOpen(true);
-      return;
-    }
-    onLearn?.(video);
-  };
-
-  // A TL;DR or Learn click on the card carries into this view as an intent:
+  // A TL;DR click on the card carries into this view as an intent:
   // act on it exactly once, as soon as the detail has loaded.
   useEffect(() => {
     intentDoneRef.current = false;
@@ -233,13 +226,10 @@ export default function VideoDetail({
     if (!intent || intentDoneRef.current || detailLoading) return;
     intentDoneRef.current = true;
     if (intent === "tldr") loadSummary();
-    if (intent === "learn") learn();
   });
 
-  const move = async (event) => {
-    const category = event.target.value;
-    event.target.value = "";
-    if (!category) return;
+  const move = async (category) => {
+    setMoveOpen(false);
     await onMove(video.id, category);
     setVideo((current) => ({ ...current, category }));
   };
@@ -338,19 +328,24 @@ export default function VideoDetail({
             </span>
           ) : null}
         </button>
-        <button className="btn btn--ghost" onClick={learn}>
-          {freePlan ? <LockIcon size={14} /> : <LearnIcon size={15} />} Learn
-        </button>
         <a className="btn btn--ghost" href={ytUrl} target="_blank" rel="noreferrer">
           <ExternalIcon size={15} /> Open on YouTube
         </a>
         <div className="topbar__spacer" />
-        <select defaultValue="" onChange={move} aria-label="Move to another row" className="select detail__move">
-          <option value="">Move to…</option>
-          {CATEGORIES.filter((c) => c.key !== video.category).map((c) => (
-            <option key={c.key} value={c.key}>{c.label}</option>
-          ))}
-        </select>
+        <button ref={moveRef} type="button" className="select detail__move" aria-haspopup="menu"
+          aria-expanded={moveOpen} aria-label="Move to another row" onClick={() => setMoveOpen((o) => !o)}>
+          Move to…
+        </button>
+        {moveOpen && (
+          <FloatingMenu anchorRef={moveRef} onClose={() => setMoveOpen(false)} label="Move to another row" matchWidth>
+            {CATEGORIES.filter((c) => c.key !== video.category).map((c) => (
+              <button key={c.key} role="menuitem" onClick={() => move(c.key)}>
+                <span className="card__menu-dot" style={{ background: `var(--cat-${c.key})` }} />
+                {c.label}
+              </button>
+            ))}
+          </FloatingMenu>
+        )}
         <button className="btn btn--ghost" onClick={dismiss}>
           <XIcon size={14} /> Not interested
         </button>

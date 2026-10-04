@@ -38,7 +38,7 @@ describe("VideoDetail M4 actions", () => {
     expect(html).not.toContain("<iframe");
     expect(html).toContain("Mark watched");
     expect(html).toContain("Your YouTube Watch Later stays unchanged.");
-    expect(html).toContain("Learn</button>");
+    expect(html).not.toContain("Learn</button>");
     expect(html).toContain('aria-label="TL;DR. 2 of 100 TL;DRs used this month"');
     expect(html).toContain('class="detail__quota"');
     expect(html).toContain("2/100");
@@ -69,7 +69,7 @@ describe("VideoDetail M4 actions", () => {
       me: { plan: "pro", isAdmin: false, summariesUsed: 12, summaryQuota: 100 },
     }));
 
-    expect(html).toContain("Learn</button>");
+    expect(html).not.toContain("Learn</button>");
     expect(html).toContain("TL;DR</button>");
     expect(html).not.toContain("detail__quota");
   });

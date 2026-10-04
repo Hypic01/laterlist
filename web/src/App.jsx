@@ -631,8 +631,7 @@ export default function App() {
             fetchTranscriptFromExtension={extensionClient.fetchTranscript}
             onBack={() => { setFocus(null); setFocusIntent(null); }} onMove={move}
             onDismiss={dismiss} onDone={done}
-            onToast={showToast} onSummaryUsed={onSummaryUsed}
-            onLearn={() => showToast("Learn sessions are coming soon.")} />
+            onToast={showToast} onSummaryUsed={onSummaryUsed} />
         ) : view === "settings" ? (
           <Settings me={me} onBack={() => setView("board")} onToast={showToast}
             onRetakeQuiz={() => { api.saveTaste({ interests: [], note: "" }); setView("quiz"); }}

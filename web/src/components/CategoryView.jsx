@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import VideoCard from "./VideoCard.jsx";
 import { SORTS } from "../lib.js";
-import { ArrowLeftIcon, SearchIcon } from "./icons.jsx";
+import { ArrowLeftIcon, CheckIcon, SearchIcon } from "./icons.jsx";
+import FloatingMenu from "./FloatingMenu.jsx";
 
 const PAGE_SIZE = 60;
 
@@ -10,6 +11,8 @@ export default function CategoryView({ row, videos, chips, onMove, onDismiss, on
   const RowIcon = row.icon;
   const [limit, setLimit] = useState(PAGE_SIZE);
   const sentinelRef = useRef(null);
+  const sortRef = useRef(null);
+  const [sortOpen, setSortOpen] = useState(false);
 
   useEffect(() => { setLimit(PAGE_SIZE); }, [row.key, query]);
 
@@ -44,10 +47,22 @@ export default function CategoryView({ row, videos, chips, onMove, onDismiss, on
       {/* The toolbar hugs the grid: filters on the left, sort order on the right. */}
       <div className="catview__toolbar">
         <div className="catview__toolbar-filters">{chips}</div>
-        <select className="select sortbox" value={sort} onChange={(e) => onSort(e.target.value)}
-          aria-label="Sort videos">
-          {Object.entries(SORTS).map(([k, s]) => <option key={k} value={k}>{s.label}</option>)}
-        </select>
+        <button ref={sortRef} type="button" className="select sortbox" aria-haspopup="menu"
+          aria-expanded={sortOpen} aria-label={`Sort videos: ${SORTS[sort].label}`}
+          onClick={() => setSortOpen((o) => !o)}>
+          {SORTS[sort].label}
+        </button>
+        {sortOpen && (
+          <FloatingMenu anchorRef={sortRef} onClose={() => setSortOpen(false)} label="Sort videos" matchWidth>
+            {Object.entries(SORTS).map(([k, s]) => (
+              <button key={k} role="menuitemradio" aria-checked={k === sort}
+                onClick={() => { setSortOpen(false); onSort(k); sortRef.current?.focus(); }}>
+                <span className="popmenu__check">{k === sort ? <CheckIcon size={12} /> : null}</span>
+                {s.label}
+              </button>
+            ))}
+          </FloatingMenu>
+        )}
       </div>
       {videos.length === 0 ? (
         <div className="row__empty">
