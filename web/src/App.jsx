@@ -27,15 +27,15 @@ import {
 
 const ROWS = [
   { key: "learn", label: "Worth learning from", tint: "var(--cat-learn)", icon: LearnIcon,
-    empty: "no lessons pending" },
+    empty: "No lessons pending." },
   { key: "watch", label: "Worth watching", tint: "var(--cat-watch)", icon: EyeIcon,
-    empty: "your eyes are off the hook" },
+    empty: "Your eyes are off the hook." },
   { key: "music", label: "Music", tint: "var(--cat-music)", icon: MusicIcon,
-    empty: "all quiet in here" },
+    empty: "All quiet in here." },
   { key: "entertainment", label: "Just for fun", tint: "var(--cat-entertainment)", icon: GamepadIcon,
-    empty: "no fun pending" },
+    empty: "No fun pending." },
   { key: "outdated", label: "Outdated", tint: "var(--cat-outdated)", icon: ArchiveIcon,
-    empty: "nothing has aged out yet" },
+    empty: "Nothing has aged out yet." },
 ];
 
 const DURATIONS = [
@@ -537,7 +537,7 @@ export default function App() {
         for (const t of parseTopics(v)) counts.set(t, (counts.get(t) ?? 0) + 1);
       }
     }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    return [...counts.entries()].sort((a, b) => (a[0] === "other") - (b[0] === "other") || b[1] - a[1]);
   })();
 
   const move = async (id, category) => {

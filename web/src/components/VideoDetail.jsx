@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as api from "../api.js";
 import { formatDuration, parseTopics } from "../lib.js";
+import { CATEGORIES } from "./VideoCard.jsx";
 import {
   ArrowLeftIcon,
   CheckIcon,
@@ -14,7 +15,6 @@ import {
   ZapIcon,
 } from "./icons.jsx";
 
-const CATEGORIES = ["learn", "watch", "music", "entertainment", "outdated"];
 const SUMMARY_BUSY = new Set(["fetching", "summarizing"]);
 
 function transcriptPayload(result) {
@@ -349,9 +349,9 @@ export default function VideoDetail({
         </a>
         <div className="topbar__spacer" />
         <select defaultValue="" onChange={move} aria-label="Move to another row" className="select detail__move">
-          <option value="">move to…</option>
-          {CATEGORIES.filter((category) => category !== video.category).map((category) => (
-            <option key={category} value={category}>{category}</option>
+          <option value="">Move to…</option>
+          {CATEGORIES.filter((c) => c.key !== video.category).map((c) => (
+            <option key={c.key} value={c.key}>{c.label}</option>
           ))}
         </select>
         <button className="btn btn--ghost" onClick={dismiss}>

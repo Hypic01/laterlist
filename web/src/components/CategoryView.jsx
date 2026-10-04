@@ -51,7 +51,7 @@ export default function CategoryView({ row, videos, chips, onMove, onDismiss, on
       </div>
       {videos.length === 0 ? (
         <div className="row__empty">
-          {query.trim() ? `no matches for “${query.trim()}” in this row` : `— ${row.empty ?? "nothing here yet"} —`}
+          {query.trim() ? `No matches for “${query.trim()}” in this row.` : (row.empty ?? "Nothing here yet.")}
         </div>
       ) : (
         <>

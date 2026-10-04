@@ -27,7 +27,7 @@ describe("VideoCard face", () => {
     expect(html).toContain('aria-label="Play &quot;A very good video&quot; here"');
     expect(html).toContain("Play here");
     expect(html).toContain("TL;DR");
-    // Done now lives in the kebab menu as "Remove · watched it".
+    // Done now lives in the kebab menu as "Watched it, remove".
     expect(html).not.toContain(">done<");
     expect(html).not.toContain("Mark ");
   });
