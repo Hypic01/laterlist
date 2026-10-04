@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { formatDuration } from "../lib.js";
 import {
   CheckIcon,
@@ -8,6 +8,7 @@ import {
   SparklesIcon,
   XIcon,
 } from "./icons.jsx";
+import FloatingMenu from "./FloatingMenu.jsx";
 
 const CATEGORIES = ["learn", "watch", "music", "entertainment", "outdated"];
 
@@ -15,6 +16,7 @@ export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDeta
   // hq720 (1280x720) exists for most videos; hqdefault (480x360) always exists
   const [fallback, setFallback] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const kebabRef = useRef(null);
   const thumb = `https://i.ytimg.com/vi/${video.id}/${fallback ? "hqdefault" : "hq720"}.jpg`;
   const ytUrl = `https://www.youtube.com/watch?v=${video.id}`;
   return (
@@ -46,37 +48,34 @@ export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDeta
             <SparklesIcon size={13} /> TL;DR
           </button>
           <div className="card__menuwrap">
-            <button className="card__kebab" aria-haspopup="menu" aria-expanded={menuOpen}
+            <button ref={kebabRef} className="card__kebab" aria-haspopup="menu" aria-expanded={menuOpen}
               onClick={() => setMenuOpen((o) => !o)} aria-label="More actions" title="More actions">
               <MoreIcon size={14} />
             </button>
             {menuOpen && (
-              <>
-                <div className="menu-backdrop" onClick={() => setMenuOpen(false)} />
-                <div className="card__menu" role="menu">
-                  <a href={ytUrl} target="_blank" rel="noreferrer" role="menuitem"
-                    onClick={() => setMenuOpen(false)}>
-                    <ExternalIcon size={12} /> Open on YouTube
-                  </a>
-                  {CATEGORIES.filter((c) => c !== video.category).map((c) => (
-                    <button key={c} role="menuitem"
-                      onClick={() => { setMenuOpen(false); onMove(video.id, c); }}>
-                      move to {c}
-                    </button>
-                  ))}
-                  <button role="menuitem"
-                    onClick={() => { setMenuOpen(false); onDone(video.id); }}>
-                    <CheckIcon size={12} /> Remove · watched it
+              <FloatingMenu anchorRef={kebabRef} onClose={() => setMenuOpen(false)} label="More actions">
+                <a href={ytUrl} target="_blank" rel="noreferrer" role="menuitem"
+                  onClick={() => setMenuOpen(false)}>
+                  <ExternalIcon size={12} /> Open on YouTube
+                </a>
+                {CATEGORIES.filter((c) => c !== video.category).map((c) => (
+                  <button key={c} role="menuitem"
+                    onClick={() => { setMenuOpen(false); onMove(video.id, c); }}>
+                    move to {c}
                   </button>
-                  <button role="menuitem" className="menu-danger"
-                    onClick={() => { setMenuOpen(false); onDismiss(video.id); }}>
-                    <XIcon size={12} /> Remove · not interested
-                  </button>
-                  <div className="card__menu-hint">
-                    <SparklesIcon size={11} /> moves teach the AI your taste
-                  </div>
+                ))}
+                <button role="menuitem"
+                  onClick={() => { setMenuOpen(false); onDone(video.id); }}>
+                  <CheckIcon size={12} /> Remove · watched it
+                </button>
+                <button role="menuitem" className="menu-danger"
+                  onClick={() => { setMenuOpen(false); onDismiss(video.id); }}>
+                  <XIcon size={12} /> Remove · not interested
+                </button>
+                <div className="popmenu__hint">
+                  <SparklesIcon size={11} /> moves teach the AI your taste
                 </div>
-              </>
+              </FloatingMenu>
             )}
           </div>
         </div>
