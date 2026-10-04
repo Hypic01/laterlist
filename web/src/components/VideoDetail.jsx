@@ -292,6 +292,7 @@ export default function VideoDetail({
           <button className="detail__poster" onClick={() => setPlaying(true)}
             aria-label={`Play "${video.title}" here`}>
             <img className="detail__thumb" src={thumb} alt=""
+              onLoad={(e) => { if (e.currentTarget.naturalWidth <= 120 && !fallback) setFallback(true); }}
               onError={() => { if (!fallback) setFallback(true); }} />
             <span className="detail__play"><PlayIcon size={19} /> Play here</span>
           </button>

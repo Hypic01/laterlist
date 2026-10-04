@@ -34,7 +34,11 @@ export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDeta
           <div className="card__thumbdead"><PlayIcon size={16} /> No thumbnail</div>
         ) : (
           <img className="card__thumb" src={thumb} alt="" loading="lazy"
-            onLoad={(e) => { if (e.currentTarget.naturalWidth <= 120) setDead(true); }}
+            onLoad={(e) => {
+              // A missing size also loads as the 120px placeholder: try hqdefault before giving up.
+              if (e.currentTarget.naturalWidth > 120) return;
+              if (!fallback) setFallback(true); else setDead(true);
+            }}
             onError={() => { if (!fallback) setFallback(true); else setDead(true); }} />
         )}
         <div className="card__open"><span><PlayIcon size={13} /> Play here</span></div>
