@@ -18,7 +18,7 @@ export default function Row({ label, tint, icon: RowIcon, videos, onMove, onDism
         </button>
       </header>
       <div className="row__scroll">
-        {videos.length === 0 && <div className="row__empty">— {emptyLine ?? "nothing here yet"} —</div>}
+        {videos.length === 0 && <div className="row__empty">{emptyLine ?? "Nothing here yet."}</div>}
         {shown.map((v) => (
           <VideoCard key={v.id} video={v} onMove={onMove} onDismiss={onDismiss} onDone={onDone}
             onOpenDetail={onOpenDetail} onTldr={onTldr} />

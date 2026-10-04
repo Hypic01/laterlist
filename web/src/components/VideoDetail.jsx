@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as api from "../api.js";
 import { formatDuration, parseTopics } from "../lib.js";
+import { CATEGORIES } from "./VideoCard.jsx";
 import {
   ArrowLeftIcon,
   CheckIcon,
@@ -14,7 +15,6 @@ import {
 } from "./icons.jsx";
 import FloatingMenu from "./FloatingMenu.jsx";
 
-const CATEGORIES = ["learn", "watch", "music", "entertainment", "outdated"];
 const SUMMARY_BUSY = new Set(["fetching", "summarizing"]);
 
 function transcriptPayload(result) {
@@ -282,23 +282,12 @@ export default function VideoDetail({
           <button className="detail__poster" onClick={() => setPlaying(true)}
             aria-label={`Play "${video.title}" here`}>
             <img className="detail__thumb" src={thumb} alt=""
+              onLoad={(e) => { if (e.currentTarget.naturalWidth <= 120 && !fallback) setFallback(true); }}
               onError={() => { if (!fallback) setFallback(true); }} />
             <span className="detail__play"><PlayIcon size={19} /> Play here</span>
           </button>
         )}
       </div>
-      <div className="detail__playerbar">
-        <p>
-          {playing ? "Playing inside Laterlist." : "Watch without leaving Laterlist."}
-          <span>Mark watched hides it from this board. Your YouTube Watch Later stays unchanged.</span>
-        </p>
-        <button className="btn btn--ghost" onClick={markWatched}
-          disabled={doneState !== "idle"}>
-          <CheckIcon size={14} />
-          {doneState === "saving" ? "Marking…" : doneState === "done" ? "Marked watched" : "Mark watched"}
-        </button>
-      </div>
-
       <div className="detail__head">
         <h2 className="detail__title">{video.title}</h2>
         {meta ? <div className="detail__meta">{meta}</div> : null}
@@ -319,7 +308,15 @@ export default function VideoDetail({
         {detailError ? <div className="detail__error" role="alert">{detailError}</div> : null}
       </div>
 
+      {/* One bar: the filled button is the screen's job (decide this video's fate);
+          features sit beside it, row moves and dismissal on the right. */}
       <div className="detail__actions">
+        <button className="btn btn--primary" onClick={markWatched} disabled={doneState !== "idle"}
+          data-tip-align="start" data-tip="Hides it from this board. Your YouTube Watch Later stays unchanged."
+          aria-describedby="detail-watched-note">
+          <CheckIcon size={14} />
+          {doneState === "saving" ? "Marking…" : doneState === "done" ? "Marked watched" : "Mark watched"}
+        </button>
         <button className="btn btn--ghost detail__summary-button" onClick={loadSummary}
           disabled={detailLoading || SUMMARY_BUSY.has(summaryState)}
           aria-label={freePlan ? `${summaryButtonLabel}. ${summaryUsageLabel}` : undefined}
@@ -337,12 +334,15 @@ export default function VideoDetail({
         <div className="topbar__spacer" />
         <button ref={moveRef} type="button" className="select detail__move" aria-haspopup="menu"
           aria-expanded={moveOpen} aria-label="Move to another row" onClick={() => setMoveOpen((o) => !o)}>
-          move to…
+          Move to…
         </button>
         {moveOpen && (
           <FloatingMenu anchorRef={moveRef} onClose={() => setMoveOpen(false)} label="Move to another row" matchWidth>
-            {CATEGORIES.filter((category) => category !== video.category).map((category) => (
-              <button key={category} role="menuitem" onClick={() => move(category)}>{category}</button>
+            {CATEGORIES.filter((c) => c.key !== video.category).map((c) => (
+              <button key={c.key} role="menuitem" onClick={() => move(c.key)}>
+                <span className="card__menu-dot" style={{ background: `var(--cat-${c.key})` }} />
+                {c.label}
+              </button>
             ))}
           </FloatingMenu>
         )}
@@ -350,6 +350,11 @@ export default function VideoDetail({
           <XIcon size={14} /> Not interested
         </button>
       </div>
+
+      {/* Read by screen readers, shown on touch screens where the tooltip can't appear. */}
+      <p id="detail-watched-note" className="detail__note">
+        Mark watched hides it from this board. Your YouTube Watch Later stays unchanged.
+      </p>
 
       {summaryError ? <div className="detail__error" role="alert">{summaryError}</div> : null}
       {SUMMARY_BUSY.has(summaryState) ? (

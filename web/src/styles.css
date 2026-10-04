@@ -267,7 +267,14 @@ button { font-family: inherit; cursor: pointer; }
   background: none; border: 0; padding: 4px; margin: -4px; color: inherit;
   border-radius: var(--radius-sm); cursor: pointer;
 }
-.row__name { font-family: var(--font-display); font-size: 21px; font-weight: 500; letter-spacing: .004em; }
+.row__title { min-width: 0; text-align: left; }
+.row__name { font-family: var(--font-display); font-size: 21px; font-weight: 500; letter-spacing: .004em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.row__count, .row__viewall { flex: none; white-space: nowrap; }
+@media (max-width: 480px) {
+  .row__name { font-size: 19px; }
+  .row__viewall { margin-left: 0; }
+}
 .row__viewall {
   display: inline-flex; align-items: center; gap: 3px; margin-left: var(--space-2);
   color: var(--color-faint); font-size: 12.5px; font-weight: 500;
@@ -300,7 +307,7 @@ button { font-family: inherit; cursor: pointer; }
 .row__scroll::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 .row__scroll::-webkit-scrollbar-track { background: transparent; }
 .row__empty {
-  color: var(--faint); font-size: 14.5px; padding: var(--space-5) var(--space-4);
+  color: var(--muted); font-size: 14px; padding: var(--space-5) var(--space-5);
   border: 1px dashed var(--border); border-radius: var(--radius-lg);
 }
 .row__more {
@@ -412,6 +419,11 @@ button { font-family: inherit; cursor: pointer; }
 .card__thumbwrap { display: block; position: relative; cursor: pointer;
   border: 0; padding: 0; background: none; width: 100%; text-align: left; color: inherit; text-decoration: none; }
 .card__thumb { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; background: var(--color-surface-raised); }
+.card__thumbdead {
+  width: 100%; aspect-ratio: 16/9; display: grid; place-items: center; align-content: center; gap: 6px;
+  background: var(--color-surface-raised); color: var(--color-faint);
+  font-family: var(--font-mono); font-size: 11px;
+}
 .card__open {
   position: absolute; inset: 0; display: grid; place-items: center;
   background: transparent; opacity: 1;
@@ -434,7 +446,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .card__duration {
   position: absolute; right: 8px; bottom: 8px;
-  background: rgba(10, 9, 7, .88); color: var(--foreground);
+  background: rgba(10, 9, 7, .88); color: #fff;
   font-family: var(--font-mono); font-size: 10.5px; font-variant-numeric: tabular-nums;
   padding: 2px 6px; border-radius: var(--radius-sm);
 }
@@ -472,7 +484,7 @@ button { font-family: inherit; cursor: pointer; }
 /* Above the sticky topbar (40), below the toast (60) and the upgrade dialog (100). */
 .menu-backdrop { position: fixed; inset: 0; z-index: 50; }
 .popmenu {
-  position: fixed; z-index: 51; min-width: 168px; overflow-y: auto;
+  position: fixed; z-index: 51; min-width: 200px; overflow-y: auto;
   background: var(--color-surface-raised); border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md); box-shadow: var(--shadow-raised);
   padding: 4px; display: flex; flex-direction: column;
@@ -481,8 +493,9 @@ button { font-family: inherit; cursor: pointer; }
   text-align: left; background: none; border: 0; color: var(--color-foreground);
   font-size: 12.5px; font-family: inherit; padding: 7px 10px;
   border-radius: var(--radius-sm); cursor: pointer;
-  display: flex; gap: 7px; align-items: center; text-decoration: none;
+  display: flex; gap: 7px; align-items: center; text-decoration: none; white-space: nowrap;
 }
+.card__menu-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; margin: 0 2px; }
 .popmenu button:hover, .popmenu a:hover,
 .popmenu button:focus-visible, .popmenu a:focus-visible { background: var(--color-surface); outline: none; }
 .popmenu .menu-danger { color: var(--color-destructive); }
@@ -823,15 +836,6 @@ button { font-family: inherit; cursor: pointer; }
 .detail__player {
   width: 100%; aspect-ratio: 16/9; display: block; border: 0; background: #000;
 }
-.detail__playerbar {
-  display: flex; align-items: center; gap: var(--space-4);
-  padding: var(--space-3) var(--space-1) 0;
-}
-.detail__playerbar p { flex: 1; color: var(--color-foreground); font-size: 13px; }
-.detail__playerbar p span {
-  display: block; margin-top: 2px; color: var(--color-muted); font-size: 12px;
-}
-.detail__playerbar .btn { flex: 0 0 auto; }
 .detail__head { margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
 .detail__title {
   max-width: 32ch; font-family: var(--font-display); font-weight: 400; letter-spacing: -.004em; font-size: clamp(26px, 3.4vw, 40px);
@@ -872,6 +876,10 @@ button { font-family: inherit; cursor: pointer; }
   font-family: var(--font-mono); font-size: 9.5px; font-variant-numeric: tabular-nums;
 }
 .detail__move { background-color: var(--color-surface-raised); }
+.detail__note { margin-top: var(--space-3); color: var(--color-muted); font-size: 12.5px; }
+@media (hover: hover) {
+  .detail__note { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 .detail__error {
   margin-top: var(--space-4); color: var(--color-destructive);
   border: 1px solid color-mix(in srgb, var(--color-destructive) 32%, var(--color-border));
@@ -943,12 +951,34 @@ button { font-family: inherit; cursor: pointer; }
 @media (max-width: 680px) {
   .detail__title { font-size: 22px; }
   .detail__player, .detail__thumb { min-height: 200px; }
-  .detail__playerbar { align-items: stretch; flex-direction: column; }
-  .detail__playerbar .btn { justify-content: center; width: 100%; }
   .detail__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detail__actions .topbar__spacer { display: none; }
   .detail__actions > .btn, .detail__actions > a.btn, .detail__move {
     width: 100%; min-width: 0; justify-content: center;
   }
-  .detail__actions > a.btn { grid-column: 1 / -1; }
+  .detail__actions > a.btn, .detail__actions > .btn--primary { grid-column: 1 / -1; }
+}
+
+/* ---------- Tooltips ----------
+   One delayed tooltip for icon buttons and terse actions: data-tip="…" on the
+   element. Waits a beat before showing so it never flickers on a pass-through,
+   hides at once on leave. Below and right-aligned by default; data-tip-pos="above"
+   for controls near a clipping edge, data-tip-align="start" for left-side buttons. */
+@media (hover: hover) {
+  [data-tip] { position: relative; }
+  [data-tip]::after {
+    content: attr(data-tip); position: absolute; z-index: 40; right: 0; top: calc(100% + 8px);
+    width: max-content; max-width: 240px; padding: 6px 10px; pointer-events: none;
+    background: var(--foreground); color: var(--background);
+    font: 500 12px/1.4 var(--font-body); letter-spacing: 0; text-transform: none; white-space: normal; text-align: left;
+    border-radius: var(--radius-sm); box-shadow: var(--shadow-raised);
+    opacity: 0; transform: translateY(-3px);
+    transition: opacity 120ms var(--ease), transform 120ms var(--ease);
+  }
+  [data-tip-pos="above"]::after { top: auto; bottom: calc(100% + 8px); transform: translateY(3px); }
+  [data-tip-align="start"]::after { right: auto; left: 0; }
+  [data-tip]:hover::after, [data-tip]:focus-visible::after {
+    opacity: 1; transform: none; transition-delay: 800ms;
+  }
+  [aria-expanded="true"][data-tip]::after { display: none; }
 }

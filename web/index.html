@@ -110,19 +110,34 @@
     .vrow__lines{flex:1;display:flex;flex-direction:column;gap:8px}
     .vrow__t{height:10px;border-radius:3px;background:color-mix(in srgb,var(--foreground) 16%,transparent)}
     .vrow__c{height:8px;border-radius:3px;background:color-mix(in srgb,var(--foreground) 9%,transparent)}
-    /* Layer B: the folders */
-    .folders-layer{position:absolute;inset:0;display:grid;place-items:center;padding:clamp(20px,4vw,44px)}
-    .folders{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(20px,3.2vw,36px);width:100%;max-width:500px}
-    .folder{display:flex;flex-direction:column;gap:12px;text-align:left;will-change:transform,opacity}
-    .folder__icon{position:relative;aspect-ratio:11/9;margin-top:12px}
-    .folder__back{position:absolute;inset:0;border-radius:4px 12px 12px 12px;background:color-mix(in srgb,var(--tint) 84%,#000)}
-    .folder__back::before{content:'';position:absolute;top:-11px;left:7%;width:44%;height:15px;border-radius:7px 7px 0 0;background:color-mix(in srgb,var(--tint) 84%,#000)}
-    .folder__paper{position:absolute;left:11%;right:15%;top:8%;height:52%;border-radius:3px;background:#ECECEC;box-shadow:8px -6px 0 -2px #CDCDCD}
-    .folder__front{position:absolute;left:0;right:0;bottom:0;height:66%;border-radius:3px 12px 12px 12px;background:var(--tint)}
-    .folder__meta{display:flex;flex-direction:column;gap:2px}
-    .folder__name{font-family:var(--display);font-size:clamp(14px,1.6vw,18px);letter-spacing:-.005em;line-height:1.1}
-    .folder__n{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-    @media(max-width:720px){.frame__stage{aspect-ratio:4/5}.folders{max-width:380px}}
+    /* Layer B: the sorted board, drawn like the real app: five tinted shelves of video cards.
+       Cards bleed off the right edge because a real shelf scrolls. Thumbnails are abstract
+       tinted frames, not real videos, so the page never borrows anyone's thumbnails. */
+    .board-layer{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;
+      gap:clamp(10px,1.4vw,14px);padding:clamp(14px,2.4vw,26px) 0 clamp(14px,2.4vw,26px) clamp(16px,3vw,32px);text-align:left}
+    .bshelf{display:flex;flex-direction:column;gap:8px;will-change:transform,opacity}
+    .bshelf__head{display:flex;align-items:center;gap:9px}
+    .bshelf__dot{width:9px;height:9px;border-radius:50%;background:var(--tint);box-shadow:0 0 12px -2px var(--tint)}
+    .bshelf__name{font-family:var(--display);font-size:clamp(13px,1.5vw,16px);letter-spacing:.004em;line-height:1}
+    .bshelf__n{font-family:var(--mono);font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;
+      border:1px solid var(--border);border-radius:999px;padding:1px 7px}
+    .bshelf__track{display:flex;gap:clamp(8px,1.1vw,12px)}
+    .bcard{flex:0 0 clamp(92px,11.5vw,128px);display:flex;flex-direction:column;gap:6px;min-width:0}
+    /* Abstract thumbnails: varied depth of the shelf tint plus a "subject" (a face or a caption bar),
+       so a shelf reads like a row of different videos instead of one swatch repeated. */
+    .bcard__thumb{position:relative;aspect-ratio:16/9;border-radius:6px;overflow:hidden;
+      background:linear-gradient(var(--a,135deg),color-mix(in srgb,var(--tint) var(--m1,48%),#141414),color-mix(in srgb,var(--tint) var(--m2,16%),#141414))}
+    .bcard:nth-child(3n+2) .bcard__thumb{--a:200deg;--m1:30%;--m2:62%}
+    .bcard:nth-child(3n) .bcard__thumb{--a:100deg;--m1:66%;--m2:24%}
+    .bcard:nth-child(4n+1) .bcard__thumb{--a:160deg;--m1:22%;--m2:40%}
+    .bcard__thumb::before{content:'';position:absolute;left:10%;bottom:22%;width:44%;height:15%;border-radius:2px;background:#fff;opacity:.6}
+    .bcard:nth-child(even) .bcard__thumb::before{left:auto;right:16%;bottom:auto;top:18%;width:30%;height:auto;aspect-ratio:1;border-radius:50%;opacity:.32}
+    .bcard__thumb::after{content:attr(data-d);position:absolute;right:5px;bottom:5px;padding:1px 4px;border-radius:3px;
+      background:rgba(10,9,7,.82);color:#fff;font-family:var(--mono);font-size:8.5px;line-height:1.3}
+    .bcard__t{font-size:10.5px;font-weight:600;line-height:1.3;color:var(--foreground);opacity:.82;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .frame__stage{aspect-ratio:16/10}
+    @media(max-width:720px){.frame__stage{aspect-ratio:2/3}.bcard{flex-basis:84px}.bcard__t{display:none}.bcard__thumb::before{width:32%}}
 
     /* Quiet scroll-entry (only when JS is on; content is never hidden without JS) */
     .has-js .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s cubic-bezier(.16,1,.3,1),transform .6s cubic-bezier(.16,1,.3,1)}
@@ -221,35 +236,96 @@
       </div>
       <div class="fine">your newest 1,000 videos free · 100 summaries a month · your YouTube account is never touched</div>
 
-      <!-- Product / animation frame. The hero animation (playlist scroll → folders) will mount
-           inside .frame__stage; for now it shows a static preview of the sorted state. -->
-      <div class="frame reveal" role="img" aria-label="Preview: a Watch Later playlist sorted into four folders — worth learning, worth watching, music, and just for fun.">
+      <!-- Product frame: the unsorted pile scrolls away, then the five shelves deal in. -->
+      <div class="frame reveal" role="img" aria-label="Preview: a Watch Later backlog sorted onto five shelves: worth learning from, worth watching, music, just for fun, and outdated.">
         <div class="frame__bar" aria-hidden="true"><span></span><span></span><span></span></div>
         <div class="frame__stage">
           <div class="pile" id="heroPile"></div>
-          <div class="folders-layer">
-            <div class="folders">
-              <div class="folder" style="--tint:var(--cat-learn)">
-                <div class="folder__icon"><span class="folder__back"></span><span class="folder__paper"></span><span class="folder__front"></span></div>
-                <div class="folder__meta"><span class="folder__name">Worth learning</span><span class="folder__n">312 videos</span></div>
+          <div class="board-layer" aria-hidden="true">
+            <div class="bshelf" style="--tint:var(--cat-learn)">
+              <div class="bshelf__head"><span class="bshelf__dot"></span><span class="bshelf__name">Worth learning from</span><span class="bshelf__n">312</span></div>
+              <div class="bshelf__track">
+                <div class="bcard"><div class="bcard__thumb" data-d="18:19"></div><div class="bcard__t">How B-trees actually work</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="9:33"></div><div class="bcard__t">The psychology of habits</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="21:40"></div><div class="bcard__t">Negotiating your first offer</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="12:02"></div><div class="bcard__t">Color theory in 12 minutes</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="16:08"></div><div class="bcard__t">Why cities flood</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="28:11"></div><div class="bcard__t">Intro to typography</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="31:21"></div><div class="bcard__t">How compilers think</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="14:55"></div><div class="bcard__t">Sleep, explained</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="11:10"></div><div class="bcard__t">Writing clear docs</div></div>
               </div>
-              <div class="folder" style="--tint:var(--cat-watch)">
-                <div class="folder__icon"><span class="folder__back"></span><span class="folder__paper"></span><span class="folder__front"></span></div>
-                <div class="folder__meta"><span class="folder__name">Worth watching</span><span class="folder__n">487 videos</span></div>
+            </div>
+            <div class="bshelf" style="--tint:var(--cat-watch)">
+              <div class="bshelf__head"><span class="bshelf__dot"></span><span class="bshelf__name">Worth watching</span><span class="bshelf__n">487</span></div>
+              <div class="bshelf__track">
+                <div class="bcard"><div class="bcard__thumb" data-d="25:58"></div><div class="bcard__t">7 days alone in Tokyo</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="13:24"></div><div class="bcard__t">Portfolio review: 50 sites</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="13:08"></div><div class="bcard__t">A night shift at a diner</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="17:00"></div><div class="bcard__t">Restoring a 1972 camper</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="42:17"></div><div class="bcard__t">Building a cabin, ep. 4</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="4:45"></div><div class="bcard__t">What makes a great logo</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="21:30"></div><div class="bcard__t">The last lighthouse keeper</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="19:12"></div><div class="bcard__t">Street food in Taipei</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="33:05"></div><div class="bcard__t">A week on a cargo ship</div></div>
               </div>
-              <div class="folder" style="--tint:var(--cat-music)">
-                <div class="folder__icon"><span class="folder__back"></span><span class="folder__paper"></span><span class="folder__front"></span></div>
-                <div class="folder__meta"><span class="folder__name">Music</span><span class="folder__n">651 videos</span></div>
+            </div>
+            <div class="bshelf" style="--tint:var(--cat-music)">
+              <div class="bshelf__head"><span class="bshelf__dot"></span><span class="bshelf__name">Music</span><span class="bshelf__n">651</span></div>
+              <div class="bshelf__track">
+                <div class="bcard"><div class="bcard__thumb" data-d="1:11:45"></div><div class="bcard__t">Lo-fi beats to study to</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="58:03"></div><div class="bcard__t">Live at the warehouse</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="6:10:58"></div><div class="bcard__t">Rainy jazz café</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="14:20"></div><div class="bcard__t">Tiny desk set</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="2:02:11"></div><div class="bcard__t">90s house mix</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="3:00:00"></div><div class="bcard__t">Piano for focus</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="22:40"></div><div class="bcard__t">Acoustic sessions</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="1:04:33"></div><div class="bcard__t">Synthwave drive</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="4:12:09"></div><div class="bcard__t">Ambient for reading</div></div>
               </div>
-              <div class="folder" style="--tint:var(--cat-fun)">
-                <div class="folder__icon"><span class="folder__back"></span><span class="folder__paper"></span><span class="folder__front"></span></div>
-                <div class="folder__meta"><span class="folder__name">Just for fun</span><span class="folder__n">903 videos</span></div>
+            </div>
+            <div class="bshelf" style="--tint:var(--cat-fun)">
+              <div class="bshelf__head"><span class="bshelf__dot"></span><span class="bshelf__name">Just for fun</span><span class="bshelf__n">903</span></div>
+              <div class="bshelf__track">
+                <div class="bcard"><div class="bcard__thumb" data-d="36:11"></div><div class="bcard__t">Grand final highlights</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="30:01"></div><div class="bcard__t">100 days in hardcore</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="3:52"></div><div class="bcard__t">Top 5 plays of the year</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="31:15"></div><div class="bcard__t">Crowd work special</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="24:48"></div><div class="bcard__t">Speedrun world record</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="11:53"></div><div class="bcard__t">Worst cooking fails</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="6:22"></div><div class="bcard__t">Cats vs. cucumbers</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="19:21"></div><div class="bcard__t">Escape room gone wrong</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="1:48:30"></div><div class="bcard__t">Bad movie night</div></div>
+              </div>
+            </div>
+            <div class="bshelf" style="--tint:var(--cat-outdated)">
+              <div class="bshelf__head"><span class="bshelf__dot"></span><span class="bshelf__name">Outdated</span><span class="bshelf__n">96</span></div>
+              <div class="bshelf__track">
+                <div class="bcard"><div class="bcard__thumb" data-d="15:56"></div><div class="bcard__t">iPhone 11 review</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="5:49"></div><div class="bcard__t">Lockdown day four vlog</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="12:03"></div><div class="bcard__t">2019 tax tips</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="9:40"></div><div class="bcard__t">Keynote 2021 recap</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="16:18"></div><div class="bcard__t">Flying during the pandemic</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="14:44"></div><div class="bcard__t">Best laptops of 2020</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="22:10"></div><div class="bcard__t">Old API tutorial</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="4:00:12"></div><div class="bcard__t">Election night live</div></div>
+                <div class="bcard"><div class="bcard__thumb" data-d="7:31"></div><div class="bcard__t">Holiday deals 2018</div></div>
               </div>
             </div>
           </div>
         </div>
       </div>
     </header>
+
+    <section id="how" class="reveal">
+      <span class="eyebrow">How it works</span>
+      <h2>From pile to shelves</h2>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><h3>Connect</h3><p>Add the Chrome extension. It reads your Watch Later from your own signed in browser and nothing else.</p></div>
+        <div class="step"><div class="n">2</div><h3>Sort</h3><p>Every video lands on one of five shelves, from worth learning to outdated. Moving one teaches it your taste.</p></div>
+        <div class="step"><div class="n">3</div><h3>Clear</h3><p>Watch it right there, read a TL;DR, or drop it. The shelves shrink as you go.</p></div>
+      </div>
+    </section>
 
     <section id="pricing" class="reveal">
       <span class="eyebrow">Terms</span>
@@ -341,9 +417,9 @@
         reveals.forEach(function(el){ el.classList.add('in'); });
       }
 
-      // Hero animation: the pile scrolls + collapses, then the folders deal out.
-      // Falls back to the static folders when GSAP is absent or reduced-motion is on
-      // (the pile defaults to opacity:0 in CSS, so the frame always shows the folders).
+      // Hero animation: the pile scrolls + collapses, then the shelves deal in.
+      // Falls back to the static board when GSAP is absent or reduced-motion is on
+      // (the pile defaults to opacity:0 in CSS, so the frame always shows the board).
       var frame=document.querySelector('.frame');
       var pileEl=document.getElementById('heroPile');
       if(frame && pileEl){
@@ -356,9 +432,9 @@
         var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
         if(!reduce && window.gsap){
           var stage=frame.querySelector('.frame__stage');
-          var flds=gsap.utils.toArray('.frame .folder');
+          var flds=gsap.utils.toArray('.frame .bshelf');
           gsap.set(pileEl,{y:0,opacity:1,scale:1,'--b':'0px',transformOrigin:'50% 40%'});
-          gsap.set(flds,{opacity:0,y:16,scale:0.9,transformOrigin:'50% 60%'});
+          gsap.set(flds,{opacity:0,x:-24});
           var played=false;
           var aio=new IntersectionObserver(function(es){
             es.forEach(function(e){
@@ -370,7 +446,7 @@
                   .to(pileEl,{'--b':'5px',duration:0.5,ease:'power1.in'},0.5)
                   .to(pileEl,{scale:0.92,opacity:0,duration:0.35,ease:'power2.inOut'},1.0)
                   .to(pileEl,{'--b':'0px',duration:0.35},1.0)
-                  .to(flds,{opacity:1,y:0,scale:1,duration:0.5,ease:'back.out(1.6)',stagger:0.16},1.3);
+                  .to(flds,{opacity:1,x:0,duration:0.55,ease:'back.out(1.4)',stagger:0.12},1.3);
               }
             });
           },{threshold:0.35});
