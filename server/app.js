@@ -68,6 +68,8 @@ export function createApp({
   randomBytes = crypto.randomBytes,
 }) {
   const app = express();
+  const removalAllowed = (user) => config.youtubeRemoval === "all"
+    || (config.youtubeRemoval === "admins" && !!user?.isAdmin);
 
   async function persistTranscript(userId, videoId, body, defaultSource) {
     const parsed = transcriptFields(body, defaultSource);
@@ -100,13 +102,14 @@ export function createApp({
 
   const extensionOrigins = new Set(config.extensionOrigins || []);
   app.use((req, res, next) => {
-    if (req.path !== "/api/imports") return next();
+    const imports = req.path === "/api/imports";
+    if (!imports && !req.path.startsWith("/api/youtube-removals")) return next();
     res.vary("Origin");
     const origin = req.get("Origin");
     if (origin && extensionOrigins.has(origin)) {
       res.set("Access-Control-Allow-Origin", origin);
       res.set("Access-Control-Allow-Headers", "content-type, x-import-token");
-      res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.set("Access-Control-Allow-Methods", imports ? "POST, OPTIONS" : "GET, POST, OPTIONS");
     }
     if (req.method === "OPTIONS") return res.status(204).end();
     next();
@@ -145,7 +148,18 @@ export function createApp({
       counts,
       lastImportAt,
       hasTaste: u.taste_profile && Object.keys(u.taste_profile).length > 0,
+      removeFromYoutube: removalAllowed(req.user) && u.remove_from_youtube !== false,
+      youtubeRemovalAvailable: removalAllowed(req.user),
     });
+  });
+
+  app.put("/api/me/prefs", auth.required, async (req, res) => {
+    const { removeFromYoutube } = req.body || {};
+    if (typeof removeFromYoutube !== "boolean") {
+      return res.status(400).json({ error: "removeFromYoutube must be a boolean" });
+    }
+    await db.setRemoveFromYoutube(req.user.id, removeFromYoutube);
+    res.json({ ok: true, removeFromYoutube });
   });
 
   app.put("/api/me/taste", auth.required, async (req, res) => {
@@ -263,6 +277,28 @@ export function createApp({
     res.json(await db.getCleanup(req.user.id));
   });
 
+  app.get("/api/youtube-removals", auth.jwtOrToken("imports"), async (req, res) => {
+    const removals = removalAllowed(req.user)
+      ? await db.pendingYoutubeRemovals(req.user.id)
+      : [];
+    res.json({ removals });
+  });
+
+  app.post("/api/youtube-removals/results", auth.jwtOrToken("imports"), async (req, res) => {
+    if (!removalAllowed(req.user)) return res.json({ ok: true });
+    const results = req.body?.results;
+    if (!Array.isArray(results) || results.length > 50 || results.some((item) =>
+      !item || typeof item !== "object" || Array.isArray(item)
+      || typeof item.videoId !== "string" || !item.videoId
+      || typeof item.ok !== "boolean"
+      || (item.error !== undefined && typeof item.error !== "string")
+    )) {
+      return res.status(400).json({ error: "invalid removal results" });
+    }
+    await db.recordYoutubeRemovalResults(req.user.id, results);
+    res.json({ ok: true });
+  });
+
   app.get("/api/videos/:id", auth.required, async (req, res) => {
     const video = await db.getVideoDetail(req.user.id, req.params.id);
     if (!video) return res.status(404).json({ error: "unknown video" });
@@ -375,14 +411,20 @@ export function createApp({
   app.post("/api/videos/:id/dismiss", auth.required, async (req, res) => {
     const ok = await db.dismiss(req.user.id, req.params.id);
     if (!ok) return res.status(404).json({ error: "unknown video" });
+    if (removalAllowed(req.user)) {
+      await db.enqueueYoutubeRemovals(req.user.id, [req.params.id], "dismissed");
+    }
     res.json({ ok: true });
   });
 
   app.post("/api/videos/done", auth.required, async (req, res) => {
     const { ids } = req.body || {};
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: "ids required" });
-    const n = await db.markDone(req.user.id, ids.map(String).slice(0, 500));
-    res.json({ ok: true, marked: n });
+    const moved = await db.markDoneIds(req.user.id, ids.map(String).slice(0, 500));
+    if (moved.length && removalAllowed(req.user)) {
+      await db.enqueueYoutubeRemovals(req.user.id, moved, "done");
+    }
+    res.json({ ok: true, marked: moved.length });
   });
 
   // ---- billing (mounted when configured) ----

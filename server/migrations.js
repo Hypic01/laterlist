@@ -182,6 +182,24 @@ export const MIGRATIONS = [
       ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY;
     `,
   },
+  {
+    id: "008-youtube-removals",
+    sql: `
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS remove_from_youtube boolean NOT NULL DEFAULT true;
+      CREATE TABLE IF NOT EXISTS youtube_removals (
+        user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        video_id text NOT NULL,
+        reason text NOT NULL CHECK (reason IN ('done','dismissed')),
+        state text NOT NULL DEFAULT 'pending' CHECK (state IN ('pending','removed','failed')),
+        attempts int NOT NULL DEFAULT 0,
+        last_error text,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (user_id, video_id)
+      );
+      ALTER TABLE youtube_removals ENABLE ROW LEVEL SECURITY;
+    `,
+  },
 ];
 
 export async function migrate(q) {

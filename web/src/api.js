@@ -27,6 +27,7 @@ async function call(url, opts = {}) {
 const post = (url, body) => call(url, { method: "POST", body: body ? JSON.stringify(body) : undefined });
 
 export const getMe = () => call("/api/me");
+export const setPrefs = (prefs) => call("/api/me/prefs", { method: "PUT", body: JSON.stringify(prefs) });
 export const saveTaste = (profile) => call("/api/me/taste", { method: "PUT", body: JSON.stringify(profile) });
 export const deleteAccount = () => call("/api/me", { method: "DELETE" });
 export const listTokens = () => call("/api/tokens");

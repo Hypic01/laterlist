@@ -47,7 +47,10 @@ describe("extension store build", () => {
   it("ships the production manifest with only the production origin", async () => {
     const manifest = JSON.parse(await readFile(path.join(extensionDir, "dist", "manifest.json"), "utf8"));
 
-    expect(manifest.version).toBe(version);
+    expect(manifest.version).toBe("1.3.0");
+    expect(manifest.description).toBe(
+      "Sorts your own YouTube Watch Later into tidy shelves with AI, and clears what you finish from Watch Later.",
+    );
     expect(manifest.permissions).toEqual(["scripting", "storage", "alarms"]);
     expect(manifest.host_permissions).toEqual(["https://www.youtube.com/*"]);
     expect(manifest.externally_connectable.matches).toEqual([
@@ -63,6 +66,12 @@ describe("extension store build", () => {
     }
   });
 
+  it("bundles the MAIN-world remover", async () => {
+    const script = await readFile(path.join(extensionDir, "dist", "remover.main.js"), "utf8");
+    expect(script).toContain("__laterlistRemoveFromWatchLater");
+    expect(script).toContain("/youtubei/v1/browse/edit_playlist");
+  });
+
   it("puts the icons in the store zip without local or private files", () => {
     const entries = execFileSync("/usr/bin/unzip", ["-Z1", zipPath], { encoding: "utf8" })
       .trim()
@@ -76,6 +85,7 @@ describe("extension store build", () => {
       "popup.html",
       "popup.js",
       "relay.js",
+      "remover.main.js",
     ];
     const zippedManifest = JSON.parse(
       execFileSync("/usr/bin/unzip", ["-p", zipPath, "manifest.json"], { encoding: "utf8" }),

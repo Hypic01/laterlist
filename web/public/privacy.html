@@ -34,15 +34,15 @@
     <li><b>Payment status</b> if you subscribe once paid plans open. Card details live with our payment provider, a merchant of record; we never see them.</li>
   </ul>
 
-  <h2>What we never touch</h2>
+  <h2>Your YouTube data</h2>
   <ul>
-    <li>Your YouTube password, cookies, or session. The collector runs in your own browser and only reads the playlist page.</li>
+    <li>Laterlist never receives your YouTube password, cookies, or session. The extension uses your signed in YouTube tab in your own browser.</li>
     <li>Your watch history, subscriptions, or any other YouTube data.</li>
-    <li>Your playlists themselves. We never modify anything on YouTube.</li>
+    <li>The extension reads your Watch Later playlist. When you remove a video in Laterlist, it also removes that video from Watch Later if the setting is on. The setting is on by default when available, and you can turn it off in Settings. Nothing else on YouTube is changed.</li>
   </ul>
 
   <h2>The Chrome extension</h2>
-  <p>The extension reads your YouTube Watch Later list only when you sync, from your own signed in browser. It sends video titles, channels, durations, and caption text to your own Laterlist account and nowhere else. Your access token is stored locally in your browser. The extension never reads other sites, never collects browsing history, and never sells or shares data.</p>
+  <p>The extension reads your YouTube Watch Later list when you sync, from your own signed in browser. It removes only the videos you clear in Laterlist when the setting is on. It sends video titles, channels, durations, and caption text to your own Laterlist account and nowhere else. Your access token is stored locally in your browser. The extension never reads other sites, never collects browsing history, and never sells or shares data.</p>
 
   <h2>How classification works</h2>
   <p>Video titles and metadata are sent to Anthropic's Claude API to be sorted into categories. Anthropic does not train on this data. No other third parties see your library.</p>

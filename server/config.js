@@ -32,6 +32,7 @@ export function loadConfig(env = process.env) {
     // Beta: every account gets Pro treatment at no charge. One env var,
     // zero data changes — ending the beta is removing it and redeploying.
     betaProForAll: bool(env.BETA_PRO_FOR_ALL),
+    youtubeRemoval: ["off", "admins", "all"].includes(env.YOUTUBE_REMOVAL) ? env.YOUTUBE_REMOVAL : "off",
     freeVideoCap: Number(env.FREE_VIDEO_CAP) || 1000,
     proVideoCap: Number(env.PRO_VIDEO_CAP) || 25000,
     freeSummaryQuota: Number(env.FREE_SUMMARY_QUOTA) || 100,

@@ -45,6 +45,8 @@ function harness({
     locked: 0,
   })),
   sessionState = null,
+  isRemovalRunning = () => false,
+  onPublish = () => {},
 } = {}) {
   const tabsById = new Map();
   if (existing) tabsById.set(existing.id, { status: "complete", active: false, ...existing });
@@ -106,8 +108,9 @@ function harness({
     alarms,
     api: { importVideos: apiImpl },
     now: () => new Date("2026-07-14T12:00:00.000Z"),
-    publish: (message) => published.push(message),
+    publish: (message) => { published.push(message); onPublish(message, { session, removed }); },
     setBadge: (text) => badges.push(text),
+    isRemovalRunning,
   });
   return {
     controller,
@@ -142,6 +145,45 @@ async function finish(h, message = {}) {
 }
 
 describe("createSyncController", () => {
+  it("publishes sync done after clearing its session and closing its temporary tab", async () => {
+    const seen = [];
+    const h = harness({ onPublish(message, { session, removed }) {
+      if (message.type === WLL_SYNC_DONE) {
+        seen.push({ state: session.peek(SYNC_SESSION_KEY), removed: [...removed] });
+      }
+    } });
+    await h.controller.start({ mode: "delta" });
+    await finish(h);
+    expect(seen).toEqual([{ state: undefined, removed: [99] }]);
+  });
+
+  it("binds a successful collection account without erasing it on a null account", async () => {
+    const h = harness();
+    await h.controller.start({ mode: "delta" });
+    await finish(h, { account: "account||user" });
+    expect(h.local.peek("wll.youtubeAccount")).toBe("account||user");
+    await h.controller.start({ mode: "delta" });
+    await finish(h, { account: null });
+    expect(h.local.peek("wll.youtubeAccount")).toBe("account||user");
+  });
+
+  it("invalidates the bound YouTube account when the Laterlist connection changes", async () => {
+    const h = harness();
+    await h.local.set({ "wll.youtubeAccount": "old-account" });
+    await h.controller.setConnection({
+      apiUrl: "https://laterlist-app.vercel.app",
+      token: "wll_new",
+      email: "someone-else@example.com",
+    });
+    expect(h.local.peek("wll.youtubeAccount")).toBeUndefined();
+  });
+
+  it("refuses to start while removal is running", async () => {
+    const h = harness({ isRemovalRunning: () => true });
+    expect(await h.controller.start({ mode: "delta" })).toEqual({ started: false });
+    expect(h.tabs.create).not.toHaveBeenCalled();
+  });
+
   it("reuses an open Watch Later tab and creates a background tab when none exists", async () => {
     const reused = harness({
       existing: { id: 7, url: "https://www.youtube.com/playlist?list=WL", active: false },

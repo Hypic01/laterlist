@@ -7,7 +7,7 @@ import {
   readPlaylistTotal,
 } from "../../collector/collector.js";
 import { parseBrowseResponse } from "../../collector/continuations.js";
-import { createYtcfgRequestTemplate } from "../../collector/innertube.js";
+import { createYtcfgRequestTemplate, currentYoutubeAccount } from "../../collector/innertube.js";
 import {
   createContinuationPaginator,
   hasContinuationItems,
@@ -526,7 +526,7 @@ export function createCollectorDriver({
       if (mode === "delta") {
         const videos = collectInitialImpl({ doc, win });
         emit(COLLECT_PROGRESS, runId, { count: videos.length, expectedTotal });
-        emit(COLLECT_DONE, runId, { videos, truncated: false });
+        emit(COLLECT_DONE, runId, { videos, truncated: false, account: currentYoutubeAccount(win) });
         return { ok: true, videos, truncated: false, expectedTotal };
       }
       if (
@@ -705,6 +705,7 @@ export function createCollectorDriver({
         videos,
         truncated: false,
         unavailable,
+        account: currentYoutubeAccount(win),
       });
       return { ok: true, videos, truncated: false, expectedTotal, unavailable };
     } catch (error) {

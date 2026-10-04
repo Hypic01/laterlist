@@ -69,7 +69,7 @@ await build({
   format: "esm",
   outfile: path.join(dist, "background.js"),
 });
-for (const name of ["collector-driver.main", "relay", "popup"]) {
+for (const name of ["collector-driver.main", "remover.main", "relay", "popup"]) {
   await build({
     ...shared,
     entryPoints: [path.join(here, "src", `${name}.js`)],

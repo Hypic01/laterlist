@@ -16,6 +16,7 @@ export const WATCH_LATER_URL = "https://www.youtube.com/playlist?list=WL";
 export const SYNC_SESSION_KEY = "wll.sync";
 export const CONNECTION_KEY = "wll.connection";
 export const RESULT_KEY = "wll.result";
+export const YOUTUBE_ACCOUNT_KEY = "wll.youtubeAccount";
 export const SYNC_KEEPALIVE_ALARM = "wll.sync.keepalive";
 
 const KEEPALIVE_PERIOD_MINUTES = 0.5;
@@ -72,6 +73,7 @@ export function createSyncController({
   now = Date.now,
   publish = () => {},
   setBadge = () => {},
+  isRemovalRunning = () => false,
 } = {}) {
   if (!tabs || !scripting || !storage?.session || !storage?.local || !api) {
     throw new Error("tabs, scripting, storage, and api are required");
@@ -157,16 +159,19 @@ export function createSyncController({
     }
   }
 
-  async function finishSuccess(result) {
+  async function finishSuccess(result, account = null) {
     const snapshot = activeState;
     if (!snapshot) return;
+    if (account) await write(local, YOUTUBE_ACCOUNT_KEY, account);
     const lastSyncAt = isoTime(now);
     const lastResult = { ok: true, ...importResult(result) };
     await write(local, RESULT_KEY, { lastSyncAt, lastResult });
-    await notify({ type: WLL_SYNC_DONE, ...importResult(result) });
     await badge("✓");
     await clearActive();
     await closeCreatedTab(snapshot);
+    // The sync-done publisher can start a removal drain. Release the sync
+    // guard and close its temporary WL tab before the drain looks for a tab.
+    await notify({ type: WLL_SYNC_DONE, ...importResult(result) });
   }
 
   async function finishError(error) {
@@ -281,7 +286,7 @@ export function createSyncController({
     await update({
       phase: "importing",
       pendingVideos: videos,
-      pendingCollection: collectionResult,
+      pendingCollection: { ...collectionResult, account: collection.account ?? null },
     });
     await notify({ type: WLL_SYNC_PHASE, phase: "importing" });
 
@@ -291,10 +296,10 @@ export function createSyncController({
         token: connection.token,
         payload,
       });
-      await finishSuccess({ ...result, ...collectionResult });
+      await finishSuccess({ ...result, ...collectionResult }, collection.account);
     } catch (error) {
       const skipped = benignImport(error);
-      if (skipped) await finishSuccess({ ...skipped, ...collectionResult });
+      if (skipped) await finishSuccess({ ...skipped, ...collectionResult }, collection.account);
       else await finishError(error);
     }
   }
@@ -335,7 +340,7 @@ export function createSyncController({
   async function start({ mode = "delta", promoteFirstSync = true } = {}) {
     if (!['delta', 'full'].includes(mode)) return { error: "INVALID_MODE" };
     await recover();
-    if (starting || activeState?.syncing) return { started: false };
+    if (starting || activeState?.syncing || isRemovalRunning()) return { started: false };
     starting = true;
 
     try {
@@ -398,6 +403,7 @@ export function createSyncController({
     if (message.type === COLLECT_DONE && activeState.phase === "collecting") {
       await importVideos(message.videos, !!message.truncated, {
         unavailable: message.unavailable,
+        account: message.account,
       });
       return { handled: true };
     }
@@ -427,6 +433,7 @@ export function createSyncController({
     });
     if (!previous?.token || previous.apiUrl !== normalizedUrl || previous.email !== normalizedEmail) {
       await local.remove(RESULT_KEY);
+      await local.remove(YOUTUBE_ACCOUNT_KEY);
     }
     return { ok: true };
   }

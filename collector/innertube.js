@@ -19,6 +19,10 @@ function configured(win, key) {
   return win?.ytcfg?.data_?.[key] ?? null;
 }
 
+export function currentYoutubeAccount(win) {
+  return configured(win, "DATASYNC_ID") || configured(win, "DELEGATED_SESSION_ID") || null;
+}
+
 function present(value) {
   return value !== undefined && value !== null && String(value) !== "";
 }
@@ -141,6 +145,7 @@ export async function createYtcfgRequestTemplate({
   doc = win?.document,
   now = Date.now,
   sha1,
+  path = "/youtubei/v1/browse",
 } = {}) {
   const apiKey = configured(win, "INNERTUBE_API_KEY");
   if (!present(apiKey)) {
@@ -247,7 +252,7 @@ export async function createYtcfgRequestTemplate({
     headers["x-youtube-bootstrap-logged-in"] = "true";
   }
 
-  const url = new URL("/youtubei/v1/browse", origin);
+  const url = new URL(path, origin);
   url.searchParams.set("key", String(apiKey));
   url.searchParams.set("prettyPrint", "false");
 

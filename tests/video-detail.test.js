@@ -27,6 +27,16 @@ const baseProps = {
 };
 
 describe("VideoDetail M4 actions", () => {
+  it("shows the YouTube removal promise when the connected extension supports it", () => {
+    const html = renderToStaticMarkup(React.createElement(VideoDetail, {
+      ...baseProps,
+      removesFromYoutube: true,
+      me: { plan: "free", isAdmin: false, summariesUsed: 2, summaryQuota: 100 },
+    }));
+    expect(html).toContain("Mark watched hides it here and takes it off your YouTube Watch Later.");
+    expect(html).not.toContain("Your YouTube Watch Later stays unchanged.");
+  });
+
   it("shows click-to-play, local watched state, and the external fallback", () => {
     const html = renderToStaticMarkup(React.createElement(VideoDetail, {
       ...baseProps,

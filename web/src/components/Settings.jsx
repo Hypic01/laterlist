@@ -17,6 +17,9 @@ export default function Settings({
   onConnectExtension,
   extensionBusy,
   extensionConnected = false,
+  extensionVersionOk = false,
+  removeFromYoutube = false,
+  onToggleRemoveFromYoutube = () => {},
   onImportManually,
 }) {
   const [busy, setBusy] = useState(false);
@@ -221,6 +224,23 @@ export default function Settings({
 
         <ExtensionConnection extension={extension} onConnect={connectExtension}
           busy={extensionBusy} surface="settings" />
+
+        {me.youtubeRemovalAvailable ? (
+          <div className="settings__row">
+            <div>
+              <p>Remove from YouTube too. When you remove a video here, the extension also takes it off your YouTube Watch Later.</p>
+              {extensionConnected && !extensionVersionOk ? (
+                <p className="settings__hint">Update the Chrome extension to 1.3 to use this.</p>
+              ) : null}
+            </div>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <button className={removeFromYoutube ? "btn btn--primary" : "btn btn--ghost"}
+                onClick={() => onToggleRemoveFromYoutube(true)} aria-pressed={removeFromYoutube}>On</button>
+              <button className={removeFromYoutube ? "btn btn--ghost" : "btn btn--primary"}
+                onClick={() => onToggleRemoveFromYoutube(false)} aria-pressed={!removeFromYoutube}>Off</button>
+            </div>
+          </div>
+        ) : null}
 
         {generatedToken ? (
           <div className="settings__token-reveal">

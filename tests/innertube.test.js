@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   InnerTubeSetupError,
   createYtcfgRequestTemplate,
+  currentYoutubeAccount,
 } from "../collector/innertube.js";
 
 function page({ values = {}, cookie = "SAPISID=session-cookie" } = {}) {
@@ -44,6 +45,26 @@ function config(overrides = {}) {
 }
 
 describe("createYtcfgRequestTemplate", () => {
+  it("allows the edit-playlist path while keeping browse as the default", async () => {
+    const { win, doc } = page({ values: config() });
+    const options = { win, doc, now: () => 10_000, sha1: async () => "a".repeat(40) };
+    const browse = await createYtcfgRequestTemplate(options);
+    const edit = await createYtcfgRequestTemplate({ ...options, path: "/youtubei/v1/browse/edit_playlist" });
+    expect(new URL(browse.url).pathname).toBe("/youtubei/v1/browse");
+    expect(new URL(edit.url).pathname).toBe("/youtubei/v1/browse/edit_playlist");
+    expect(edit.init.headers.authorization).toBe(browse.init.headers.authorization);
+  });
+
+  it("reads the current account from ytcfg.get or data_", () => {
+    expect(currentYoutubeAccount(page({ values: config({ DATASYNC_ID: "primary||user" }) }).win))
+      .toBe("primary||user");
+    expect(currentYoutubeAccount(page({ values: config({ DATASYNC_ID: null }) }).win))
+      .toBe("delegated-page");
+    expect(currentYoutubeAccount({ ytcfg: { data_: { DATASYNC_ID: "data-only" } } }))
+      .toBe("data-only");
+    expect(currentYoutubeAccount({ ytcfg: { data_: {} } })).toBeNull();
+  });
+
   it("builds an authenticated request from the live YouTube page configuration", async () => {
     const values = config();
     const context = values.INNERTUBE_CONTEXT;
