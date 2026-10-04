@@ -16,12 +16,16 @@ function errorCode(status) {
   return "IMPORT_FAILED";
 }
 
-function importsUrl(apiUrl) {
+function endpointUrl(apiUrl, path) {
   const base = new URL(String(apiUrl || ""));
   if (!['http:', 'https:'].includes(base.protocol)) {
     throw new ExtensionApiError("INVALID_API_URL", "The saved server address is invalid.");
   }
-  return new URL("/api/imports", base.origin).href;
+  return new URL(path, base.origin).href;
+}
+
+function importsUrl(apiUrl) {
+  return endpointUrl(apiUrl, "/api/imports");
 }
 
 function userMessage(value, fallback) {
@@ -33,7 +37,46 @@ function userMessage(value, fallback) {
 export function createExtensionApi({ fetch: fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== "function") throw new Error("fetch is required");
 
+  async function removalRequest({ apiUrl, token, path, method, body }) {
+    let response;
+    try {
+      response = await fetchImpl(endpointUrl(apiUrl, path), {
+        method,
+        mode: "cors",
+        credentials: "omit",
+        headers: {
+          ...(body ? { "Content-Type": "application/json" } : {}),
+          "X-Import-Token": token,
+        },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+    } catch (error) {
+      if (error instanceof ExtensionApiError) throw error;
+      throw new ExtensionApiError("NETWORK_ERROR", "Laterlist could not be reached.");
+    }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new ExtensionApiError(
+        errorCode(response.status),
+        userMessage(data.error, `Removal request failed with status ${response.status}.`),
+        response.status,
+        data,
+      );
+    }
+    return data;
+  }
+
   return {
+    pendingRemovals({ apiUrl, token }) {
+      return removalRequest({ apiUrl, token, path: "/api/youtube-removals", method: "GET" });
+    },
+
+    reportRemovals({ apiUrl, token, results }) {
+      return removalRequest({
+        apiUrl, token, path: "/api/youtube-removals/results", method: "POST", body: { results },
+      });
+    },
+
     async importVideos({ apiUrl, token, payload }) {
       let response;
       try {

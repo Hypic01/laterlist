@@ -27,6 +27,14 @@ export function createDb(q) {
       return rows[0] || null;
     },
 
+    async setRemoveFromYoutube(id, enabled) {
+      await q.query("UPDATE users SET remove_from_youtube = $2 WHERE id = $1", [id, enabled]);
+      // Off means nothing else leaves YouTube, including what was queued while it was on.
+      if (!enabled) {
+        await q.query("DELETE FROM youtube_removals WHERE user_id = $1 AND state = 'pending'", [id]);
+      }
+    },
+
     async setTasteProfile(id, profile) {
       await q.query("UPDATE users SET taste_profile = $2 WHERE id = $1", [id, JSON.stringify(profile)]);
     },
@@ -100,6 +108,61 @@ export function createDb(q) {
         [id]
       );
       return rows.length > 0;
+    },
+
+    // A queued removal requires both the user's preference and a live import
+    // token. Keeping that guard in the INSERT prevents a stale web request
+    // from queuing work after the extension has been disconnected.
+    async enqueueYoutubeRemovals(userId, videoIds, reason) {
+      if (!videoIds.length) return 0;
+      const { rows } = await q.query(
+        `INSERT INTO youtube_removals (user_id, video_id, reason)
+         SELECT u.id, ids.video_id, $3
+         FROM users u
+         CROSS JOIN (SELECT DISTINCT unnest($2::text[]) AS video_id) ids
+         WHERE u.id = $1 AND u.remove_from_youtube = true
+           AND EXISTS (
+             SELECT 1 FROM api_tokens t
+             WHERE t.user_id = u.id AND t.scope = 'imports' AND t.revoked_at IS NULL
+           )
+         ON CONFLICT (user_id, video_id) DO UPDATE SET
+           state = 'pending', reason = EXCLUDED.reason, attempts = 0,
+           last_error = NULL, updated_at = now()
+         RETURNING video_id`,
+        [userId, videoIds, reason]
+      );
+      return rows.length;
+    },
+
+    async pendingYoutubeRemovals(userId, limit = 50) {
+      const { rows } = await q.query(
+        `SELECT video_id AS "videoId", reason FROM youtube_removals
+         WHERE user_id = $1 AND state = 'pending'
+         ORDER BY created_at, video_id LIMIT $2`,
+        [userId, Math.max(0, Math.min(50, Math.trunc(limit)))]
+      );
+      return rows;
+    },
+
+    async recordYoutubeRemovalResults(userId, results) {
+      for (const { videoId, ok, error } of results) {
+        await q.query(
+          `UPDATE youtube_removals SET
+             state = CASE
+               WHEN $3::boolean THEN 'removed'
+               WHEN $4 IN ('ACCOUNT_MISMATCH', 'SIGNED_OUT', 'NOT_BOUND') THEN 'pending'
+               WHEN attempts + 1 >= 3 THEN 'failed'
+               ELSE 'pending' END,
+             attempts = CASE
+               WHEN $3::boolean OR $4 IN ('ACCOUNT_MISMATCH', 'SIGNED_OUT', 'NOT_BOUND')
+                 THEN attempts
+               ELSE attempts + 1 END,
+             last_error = CASE WHEN $3::boolean THEN NULL ELSE $4 END,
+             updated_at = now()
+           WHERE user_id = $1 AND video_id = $2 AND state = 'pending'`,
+          [userId, videoId, ok, ok ? null : error || "UNKNOWN_ERROR"]
+        );
+      }
     },
 
     // ---- videos ----
@@ -185,9 +248,14 @@ export function createDb(q) {
 
     async getCleanup(userId) {
       const { rows } = await q.query(
-        `SELECT ${LIST_COLUMNS}, override_at FROM videos
-         WHERE user_id = $1 AND status IN ('done','dismissed')
-         ORDER BY override_seq DESC NULLS LAST, first_seen_at DESC`,
+        `SELECT v.video_id AS id, v.title, v.channel, v.duration_seconds,
+           v.playlist_position, v.published_text, v.category, v.reasoning,
+           v.confidence, v.topics, v.status, v.manual_override,
+           v.override_from, v.override_at, yr.state AS youtube_state
+         FROM videos v
+         LEFT JOIN youtube_removals yr ON yr.user_id = v.user_id AND yr.video_id = v.video_id
+         WHERE v.user_id = $1 AND v.status IN ('done','dismissed')
+         ORDER BY v.override_seq DESC NULLS LAST, v.first_seen_at DESC`,
         [userId]
       );
       return rows;
@@ -317,13 +385,17 @@ export function createDb(q) {
     },
 
     async markDone(userId, ids) {
+      return (await this.markDoneIds(userId, ids)).length;
+    },
+
+    async markDoneIds(userId, ids) {
       const { rows } = await q.query(
         `UPDATE videos SET status = 'done', override_at = clock_timestamp(), override_seq = nextval('override_seq')
          WHERE user_id = $1 AND video_id = ANY($2) AND status = 'scanned'
          RETURNING video_id`,
         [userId, ids]
       );
-      return rows.length;
+      return rows.map((row) => row.video_id);
     },
 
     // Videos that failed classification twice are excluded permanently

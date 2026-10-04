@@ -15,6 +15,8 @@ import {
   availabilitySummary,
   createExtensionClient,
   isChromiumBrowser,
+  supportsRemoval,
+  WLL_REMOVE_DONE,
   WLL_SYNC_DONE,
   WLL_SYNC_ERROR,
   WLL_SYNC_PHASE,
@@ -71,7 +73,7 @@ function AuthGate({ autoSignIn = false }) {
           </button>
         )}
         <span className="authgate__fine">
-          We only see your email. Your YouTube account stays yours. No passwords, no account access.
+          Your YouTube password and browser session stay on your device. Imported videos stay in your Laterlist account.
           {" "}<a href="/privacy.html">Privacy</a>
         </span>
       </div>
@@ -324,6 +326,10 @@ export default function App() {
             ? "Connect the extension again."
             : "The extension could not finish the sync. Try again.";
         showToast(payload.error || fallback);
+        return;
+      }
+      if (message?.type === WLL_REMOVE_DONE && Number(payload.failed) > 0) {
+        showToast(`Couldn't remove ${payload.failed} from YouTube. See History in Settings.`);
       }
     };
 
@@ -512,6 +518,8 @@ export default function App() {
     isChromium,
   };
   const extensionConnected = extension.present && extension.connected && !extension.mismatch;
+  const removesFromYoutube = Boolean(me.removeFromYoutube)
+    && extensionConnected && supportsRemoval(extensionState.version);
   const extensionSyncing = Boolean(extensionState.status?.syncing || extensionState.progress);
 
   const matches = (list) => {
@@ -546,8 +554,30 @@ export default function App() {
     showToast(`Moved to ${category}. The AI learns from your corrections ✦`);
     reload();
   };
-  const dismiss = async (id) => { await api.dismissVideo(id); reload(); };
-  const done = async (id) => { await api.markDone([id]); showToast("Marked done. It's in your History, in Settings."); reload(); };
+  const dismiss = async (id) => {
+    await api.dismissVideo(id);
+    if (removesFromYoutube) {
+      extensionClient.removePending().catch(() => {});
+      showToast("Removed. Taking it off your YouTube Watch Later too.");
+    }
+    reload();
+  };
+  const done = async (id) => {
+    await api.markDone([id]);
+    if (removesFromYoutube) extensionClient.removePending().catch(() => {});
+    showToast(removesFromYoutube
+      ? "Marked done. Taking it off your YouTube Watch Later too."
+      : "Marked done. It's in your History, in Settings.");
+    reload();
+  };
+  const toggleRemoveFromYoutube = async (enabled) => {
+    try {
+      await api.setPrefs({ removeFromYoutube: enabled });
+      await reload();
+    } catch (error) {
+      showToast(error.message);
+    }
+  };
   // Intent carries a card-level action into the detail view: "play" starts the
   // player and "tldr" starts the summary.
   const openDetail = (video, intent = null) => {
@@ -628,6 +658,7 @@ export default function App() {
         {focus ? (
           <VideoDetail video={focus} rowMeta={detailRow} me={me} intent={focusIntent}
             extensionPresent={extensionState.present}
+            removesFromYoutube={removesFromYoutube}
             fetchTranscriptFromExtension={extensionClient.fetchTranscript}
             onBack={() => { setFocus(null); setFocusIntent(null); }} onMove={move}
             onDismiss={dismiss} onDone={done}
@@ -637,6 +668,9 @@ export default function App() {
             onRetakeQuiz={() => { api.saveTaste({ interests: [], note: "" }); setView("quiz"); }}
             extension={extension} onConnectExtension={connectExtension}
             extensionBusy={extensionBusy} extensionConnected={extensionConnected}
+            removeFromYoutube={me.removeFromYoutube}
+            extensionVersionOk={supportsRemoval(extensionState.version)}
+            onToggleRemoveFromYoutube={toggleRemoveFromYoutube}
             onImportManually={() => { setManualImport(true); setView("import"); }} />
         ) : view === "quiz" ? (
           <Onboarding onDone={() => reload().then(() => setView("board"))} />
@@ -644,7 +678,8 @@ export default function App() {
           <ImportPanel onImported={onImported} extension={extension}
             onConnectExtension={connectExtension} extensionBusy={extensionBusy}
             extensionConnected={extensionConnected} onSyncExtension={syncExtension}
-            extensionSyncing={extensionSyncing} manualOpen={manualImport} />
+            extensionSyncing={extensionSyncing} manualOpen={manualImport}
+            removesFromYoutube={removesFromYoutube} />
         ) : ROWS.some((r) => r.key === view) ? (
           <CategoryView row={ROWS.find((r) => r.key === view)}
             videos={withQuery(matches(board[view]))} chips={chipsBar}

@@ -4,9 +4,36 @@ import {
   createExtensionClient,
   isChromiumBrowser,
   parseExtensionIds,
+  supportsRemoval,
 } from "../web/src/extension.js";
 
 describe("website extension helpers", () => {
+  it("gates removal on extension version 1.3.0 or newer", () => {
+    expect(supportsRemoval("1.3.0")).toBe(true);
+    expect(supportsRemoval("1.2.9")).toBe(false);
+    expect(supportsRemoval("1.10.0")).toBe(true);
+    expect(supportsRemoval("1.3.0-beta.1")).toBe(false);
+    expect(supportsRemoval(null)).toBe(false);
+    expect(supportsRemoval("garbage")).toBe(false);
+  });
+
+  it("sends only a drain command, with no video ids", async () => {
+    const id = "abcdefghijklmnopabcdefghijklmnop";
+    const sent = [];
+    const runtime = {
+      sendMessage(_id, message, reply) {
+        sent.push(message);
+        reply(message.type === "WLL_PING"
+          ? { ok: true, version: "1.3.0" }
+          : { removed: 0 });
+      },
+    };
+    const client = createExtensionClient({ runtime, extensionIds: [id] });
+    await client.detect();
+    await client.removePending();
+    expect(sent.at(-1)).toEqual({ type: "WLL_REMOVE_PENDING" });
+  });
+
   it("shows extension onboarding only in Chromium browsers that can use the desktop extension", () => {
     expect(isChromiumBrowser({
       userAgent: "Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36",

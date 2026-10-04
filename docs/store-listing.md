@@ -2,13 +2,13 @@
 
 ## Single purpose
 
-Syncs the user's own YouTube Watch Later playlist into their Laterlist account so it can be organized and summarized.
+Syncs the user's own YouTube Watch Later into their Laterlist account to organize it, and removes videos the user clears in Laterlist from that Watch Later.
 
 ## Permission justifications
 
 ### scripting
 
-The scripting permission injects the collector into the user's own YouTube tab to read their Watch Later list and captions. MAIN world execution is required because YouTube exposes this data only in the page world.
+The scripting permission injects the collector and remover into the user's own YouTube tab to read their Watch Later list and captions and to remove videos they clear in Laterlist. MAIN world execution is required because YouTube exposes this data and the removal request only in the page world.
 
 ### storage
 
@@ -20,7 +20,7 @@ The alarms permission runs the scheduled background sync that the user controls 
 
 ### Host access to youtube.com
 
-The youtube.com host permission lets the extension read the user's own Watch Later list and captions. YouTube is the only site the extension touches.
+The youtube.com host permission lets the extension read the user's own Watch Later list and captions and remove videos they clear in Laterlist from Watch Later. YouTube is the only site the extension touches.
 
 ## Data usage disclosure
 
@@ -32,7 +32,7 @@ Authentication information: Yes. The extension stores the user's Laterlist acces
 
 ### How the data is used
 
-The data is used only for the extension's single purpose, syncing the user's own YouTube Watch Later playlist into their Laterlist account so it can be organized and summarized.
+The data is used only to sync the user's own YouTube Watch Later into Laterlist and remove videos they clear in Laterlist from Watch Later.
 
 The data is transmitted to the developer's service only for the user's own Laterlist account.
 
@@ -44,7 +44,7 @@ No remote code is used. All extension code is bundled in the submitted Manifest 
 
 ## Reviewer notes
 
-A full sync and a caption fetch may briefly open a muted background youtube.com tab. The tab closes itself when the task finishes. Nothing is downloaded or rehosted. The user watches every video on YouTube.
+A full sync, a caption fetch, or a removal drain may briefly open a background youtube.com tab. The tab closes itself when the task finishes. Nothing is downloaded or rehosted. The user watches every video on YouTube.
 
 ## Screenshot shot list
 

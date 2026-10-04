@@ -2,6 +2,8 @@ import {
   WLL_FETCH_TRANSCRIPT,
   WLL_GET_STATUS,
   WLL_PING,
+  WLL_REMOVE_PENDING,
+  WLL_REMOVE_DONE,
   WLL_SET_TOKEN,
   WLL_SYNC,
   WLL_SYNC_DONE,
@@ -11,9 +13,19 @@ import {
   WLL_SYNC_PROGRESS,
 } from "../../extension/src/messages.js";
 
-export { WLL_SYNC_DONE, WLL_SYNC_ERROR, WLL_SYNC_PHASE, WLL_SYNC_PROGRESS };
+export { WLL_SYNC_DONE, WLL_SYNC_ERROR, WLL_SYNC_PHASE, WLL_SYNC_PROGRESS, WLL_REMOVE_DONE };
 
 const EXTENSION_ID_RE = /^[a-p]{32}$/;
+
+export function supportsRemoval(version) {
+  if (typeof version !== "string") return false;
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/.exec(version);
+  if (!match) return false;
+  const [major, minor, patch] = match.slice(1, 4).map(Number);
+  if (major !== 1) return major > 1;
+  if (minor !== 3) return minor > 3;
+  return patch > 0 || !match[4];
+}
 
 export function parseExtensionIds(value = "") {
   return String(value)
@@ -132,6 +144,10 @@ export function createExtensionClient({
 
     sync(mode = "delta", { promoteFirstSync = true } = {}) {
       return send(WLL_SYNC, { mode, promoteFirstSync });
+    },
+
+    removePending() {
+      return send(WLL_REMOVE_PENDING);
     },
 
     async fetchTranscript(videoId) {

@@ -78,4 +78,13 @@ describe("ImportPanel extension priority", () => {
     expect(html).toContain("<details class=\"importer__manual\" open=\"\">");
     expect(html).toContain("<summary>Import manually instead</summary>");
   });
+
+  // With the kill switch off or the setting off, nothing leaves YouTube, so the
+  // privacy note must not claim it does.
+  it("mentions YouTube removal only when it is active", () => {
+    const off = renderToStaticMarkup(React.createElement(ImportPanel, baseProps));
+    expect(off).not.toContain("The only change we make on YouTube");
+    const on = renderToStaticMarkup(React.createElement(ImportPanel, { ...baseProps, removesFromYoutube: true }));
+    expect(on).toContain("The only change we make on YouTube");
+  });
 });

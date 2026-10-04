@@ -170,6 +170,22 @@ function explicitDriver({ page, messages, paginationOptions = {} }) {
 }
 
 describe("explicit InnerTube full collection", () => {
+  it("includes the signed-in account in a successful collection", async () => {
+    const messages = [];
+    const page = driverPage({ total: 1, initialVideos: [], token: null, fetch: async () => response({}) });
+    page.win.ytcfg.get = (key) => ({ LOGGED_IN: true, DATASYNC_ID: "account||user" })[key];
+    const driver = createCollectorDriver({
+      doc: page.doc,
+      win: page.win,
+      sleep: async () => {},
+      postMessage: (message) => messages.push(message),
+      collectInitialImpl: () => [{ id: "video12345" }],
+    });
+    await driver.collect({ mode: "delta", runId: "account" });
+    expect(messages.find((message) => message.type === COLLECT_DONE))
+      .toMatchObject({ account: "account||user" });
+  });
+
   it("paginates a 2,800 item list to a tokenless end and returns the full set", async () => {
     const initialVideos = Array.from({ length: 100 }, (_, index) => ({
       id: `video-${index + 1}`,

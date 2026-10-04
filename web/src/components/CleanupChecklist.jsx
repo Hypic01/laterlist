@@ -2,7 +2,18 @@ import React, { useEffect, useState } from "react";
 import * as api from "../api.js";
 import { CheckIcon, HistoryIcon, XIcon } from "./icons.jsx";
 
-export default function CleanupChecklist() {
+export function youtubeStateLabel(state) {
+  return { removed: "off YouTube", pending: "removing", failed: "still on YouTube" }[state] || null;
+}
+
+// Only promise automatic removal when it is really on (kill switch, setting, and extension version).
+export function historyHint(removesFromYoutube) {
+  return removesFromYoutube
+    ? "Videos you remove here also leave your YouTube Watch Later. Anything marked still on YouTube needs a manual cleanup."
+    : "Everything here is dealt with, safe to remove from your real Watch Later on YouTube.";
+}
+
+export default function CleanupChecklist({ removesFromYoutube = false }) {
   const [rows, setRows] = useState(null);
   useEffect(() => { api.getCleanup().then(setRows).catch(() => setRows([])); }, []);
   if (!rows) return <div className="loading">loading…</div>;
@@ -10,8 +21,7 @@ export default function CleanupChecklist() {
     <div className="history">
       <p className="history__hint">
         <HistoryIcon size={15} />
-        Everything here is dealt with, safe to remove from your real Watch Later on YouTube.
-        The extension never changes your playlist, so this last step stays yours.
+        {historyHint(removesFromYoutube)}
       </p>
       <table>
         <thead>
@@ -24,6 +34,12 @@ export default function CleanupChecklist() {
                 {v.status === "done"
                   ? <span className="pill pill--done"><CheckIcon size={12} /> done</span>
                   : <span className="pill pill--dismissed"><XIcon size={12} /> not interested</span>}
+                {youtubeStateLabel(v.youtube_state) ? (
+                  <span className={`pill ${v.youtube_state === "removed" ? "pill--done" : "pill--dismissed"}`}
+                    style={{ marginLeft: "var(--space-2)" }}>
+                    {youtubeStateLabel(v.youtube_state)}
+                  </span>
+                ) : null}
               </td>
               <td><a href={`https://www.youtube.com/watch?v=${v.id}`} target="_blank"
                 rel="noreferrer">{v.title}</a></td>

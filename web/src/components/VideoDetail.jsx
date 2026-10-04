@@ -35,6 +35,7 @@ export default function VideoDetail({
   me,
   intent = null,
   extensionPresent,
+  removesFromYoutube = false,
   fetchTranscriptFromExtension,
   onBack,
   onMove,
@@ -312,7 +313,9 @@ export default function VideoDetail({
           features sit beside it, row moves and dismissal on the right. */}
       <div className="detail__actions">
         <button className="btn btn--primary" onClick={markWatched} disabled={doneState !== "idle"}
-          data-tip-align="start" data-tip="Hides it from this board. Your YouTube Watch Later stays unchanged."
+          data-tip-align="start" data-tip={removesFromYoutube
+            ? "Hides it here and takes it off your YouTube Watch Later."
+            : "Hides it from this board. Your YouTube Watch Later stays unchanged."}
           aria-describedby="detail-watched-note">
           <CheckIcon size={14} />
           {doneState === "saving" ? "Marking…" : doneState === "done" ? "Marked watched" : "Mark watched"}
@@ -353,7 +356,9 @@ export default function VideoDetail({
 
       {/* Read by screen readers, shown on touch screens where the tooltip can't appear. */}
       <p id="detail-watched-note" className="detail__note">
-        Mark watched hides it from this board. Your YouTube Watch Later stays unchanged.
+        {removesFromYoutube
+          ? "Mark watched hides it here and takes it off your YouTube Watch Later."
+          : "Mark watched hides it from this board. Your YouTube Watch Later stays unchanged."}
       </p>
 
       {summaryError ? <div className="detail__error" role="alert">{summaryError}</div> : null}
