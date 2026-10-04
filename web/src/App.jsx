@@ -678,7 +678,8 @@ export default function App() {
           <ImportPanel onImported={onImported} extension={extension}
             onConnectExtension={connectExtension} extensionBusy={extensionBusy}
             extensionConnected={extensionConnected} onSyncExtension={syncExtension}
-            extensionSyncing={extensionSyncing} manualOpen={manualImport} />
+            extensionSyncing={extensionSyncing} manualOpen={manualImport}
+            removesFromYoutube={removesFromYoutube} />
         ) : ROWS.some((r) => r.key === view) ? (
           <CategoryView row={ROWS.find((r) => r.key === view)}
             videos={withQuery(matches(board[view]))} chips={chipsBar}

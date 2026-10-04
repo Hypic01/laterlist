@@ -6,7 +6,14 @@ export function youtubeStateLabel(state) {
   return { removed: "off YouTube", pending: "removing", failed: "still on YouTube" }[state] || null;
 }
 
-export default function CleanupChecklist() {
+// Only promise automatic removal when it is really on (kill switch, setting, and extension version).
+export function historyHint(removesFromYoutube) {
+  return removesFromYoutube
+    ? "Videos you remove here also leave your YouTube Watch Later. Anything marked still on YouTube needs a manual cleanup."
+    : "Everything here is dealt with, safe to remove from your real Watch Later on YouTube.";
+}
+
+export default function CleanupChecklist({ removesFromYoutube = false }) {
   const [rows, setRows] = useState(null);
   useEffect(() => { api.getCleanup().then(setRows).catch(() => setRows([])); }, []);
   if (!rows) return <div className="loading">loading…</div>;
@@ -14,7 +21,7 @@ export default function CleanupChecklist() {
     <div className="history">
       <p className="history__hint">
         <HistoryIcon size={15} />
-        Videos you remove here also leave your YouTube Watch Later when the extension is connected. Anything marked still on YouTube needs a manual cleanup.
+        {historyHint(removesFromYoutube)}
       </p>
       <table>
         <thead>

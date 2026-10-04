@@ -12,6 +12,7 @@ export default function ImportPanel({
   onSyncExtension,
   extensionSyncing = false,
   manualOpen = false,
+  removesFromYoutube = false,
 }) {
   const [pasted, setPasted] = useState("");
   const [error, setError] = useState(null);
@@ -125,7 +126,10 @@ export default function ImportPanel({
       <p className="importer__privacy">
         The collector runs only in your browser and only reads your list. Your YouTube
         session stays on YouTube, and nothing is sent here until you paste it. We store
-        the video titles and metadata you import. The only change we make on YouTube is taking videos you remove here off your Watch Later, and you can turn that off in Settings.
+        the video titles and metadata you import.
+        {removesFromYoutube
+          ? " The only change we make on YouTube is taking videos you remove here off your Watch Later, and you can turn that off in Settings."
+          : null}
       </p>
     </>
   );
