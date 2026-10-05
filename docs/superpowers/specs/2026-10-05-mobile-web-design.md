@@ -86,9 +86,9 @@ Done when:
   call the API right away, reload, and show the desktop toast, which would break
   undo. Phone actions go through the pending queue (§7), and the queue calls
   `api.*` itself when an action commits.
-- History: phone screens reuse the existing `pushNav` / `popstate` entries.
-  Values: `view` = board | cleanup | settings | a row key, plus a `sheet` entry
-  for the open video. Every screen has a visible back or close button. The iOS
+- History: `origin/main` has no history handling, so PhoneApp keeps its own
+  screen stack. Each pushed screen or sheet does a `history.pushState`, and
+  `popstate` pops the stack. Switching tabs collapses the stack to the root. Every screen has a visible back or close button. The iOS
   edge back swipe in standalone mode is **unverified**, so the iPhone check
   covers it and nothing depends on it.
 
@@ -103,7 +103,7 @@ Done when:
 | `CleanupDeck.jsx` | Card stack: progress ("13 of 61"), the drag card with a REMOVE / KEEP stamp, the Remove / Watch / Keep buttons, "Wrong row? Move it", the empty state, and the Done screen. |
 | `VideoSheet.jsx` | `vaul` Drawer holding the actions in decision 6. Move to opens a nested list of the 5 rows inside the same drawer. |
 | `PhoneSettings.jsx` | Wraps the existing `Settings` component with phone spacing. It hides the extension-connect controls and shows the "sync on your computer" note. |
-| `deck.js` | Pure logic: `buildDeck(board, { row, pendingIds })` returns scanned videos where `kept_at` is null and the id isn't pending, oldest saved first. Unit tested. |
+| `deck.js` | Pure logic. `buildDeck(board, { row })` returns scanned videos where `kept_at` is null, oldest saved first. `applyOverlay` and `pruneOverlay` handle the optimistic overlay (§7). Also totals, swipe decision, session stats. Unit tested. |
 | `pendingQueue.js` | The undo queue (§7). It is a single module-level instance, not React state, so it survives PhoneApp unmounting. Unit tested with fake timers. |
 | `phone.css` | Phone styles, imported from `main.jsx` and scoped under `.phone-app` so the desktop can't be affected. It uses only existing tokens. |
 
@@ -112,11 +112,11 @@ Done when:
 - `/api/board` already returns every scanned video, grouped by category. The
   phone needs no new read endpoint. `LIST_COLUMNS` adds `kept_at`.
 - Total watch time per row is the sum of `duration_seconds`, computed on the client.
-- **Deck order:** "oldest saved first" depends on which end of the Watch Later
-  holds the oldest saves. The assumption is that the highest `playlist_position`
-  is the oldest (YouTube puts new saves at the top). The plan's first task checks
-  this against Joon's real Watch Later. The order is one comparator in `deck.js`,
-  so flipping it is a one-line change.
+- **Deck order (resolved):** use `SORTS["added-old"]` from `lib.js`, the
+  desktop's existing "Added: oldest" sort (highest `playlist_position` first).
+  The phone and the desktop agree by construction.
+- `ROWS` and `DURATIONS` move from `App.jsx` into `web/src/rows.js`, so both
+  layouts share one definition.
 
 ### Server change (the only one)
 
@@ -124,7 +124,6 @@ Done when:
 - `db.keep(userId, videoId)` sets `kept_at = now()` where `status = 'scanned'` and
   returns a boolean.
 - `POST /api/videos/:id/keep` returns `{ ok: true }`, or 404 for an unknown video.
-- `api.keepVideo(id)` is added in `web/src/api.js`.
 - Moving a video (`setCategory`) from the deck also calls keep. Choosing a row
   counts as reviewing the video.
 - Prod note: Vercel has no auto-migrate, so 009 is applied to Supabase by hand
@@ -154,20 +153,23 @@ All screens follow the mockups in `Mobile Design.html`.
    (`https://www.youtube.com/watch?v=ID`, which iOS hands to the YouTube app).
    Play here and TL;DR sit side by side. Below that: Move to (showing the current
    row), Watched it (remove), and Not interested (remove, in coral), then the
-   YouTube footnote. Play here and TL;DR reuse the existing `VideoDetail` pieces
-   as far as practical. If reuse is awkward, Play here embeds the same
-   youtube-nocookie iframe the desktop uses.
+   YouTube footnote. Play here and TL;DR open the existing `VideoDetail` as a
+   full phone screen, with the play or TL;DR intent. A new optional
+   `youtubeNote` prop swaps in the phone's YouTube sentence. The desktop passes
+   nothing, so it doesn't change.
 5. **Done.** A check ring, "You let go of N videos", and "That's X hours you no
    longer owe anyone." when the removed time is at least 1 hour (otherwise just
    the count). Then 3 stat tiles (Removed / Kept / Moved), the YouTube footnote
    when it applies, and "Back to board".
 6. **Sign-in.** The existing `AuthGate` stays as is. It is checked at 390px
    and only gets spacing fixes if it needs them.
-7. **Empty and other states.** The deck when everything has been reviewed: "Nothing
-   left to sort. New videos show up here after your computer syncs." Board while
-   loading: skeleton rows, not a spinner. An API error keeps the card in place
-   and shows a toast with Retry. A row with zero videos shows its existing empty
-   line.
+7. **Empty and other states.**
+   - The deck when everything has been reviewed: "Nothing left to sort", then
+     the sync line.
+   - Loading uses App's existing loading line.
+   - A failed save puts the card back and shows a toast: "Couldn't save that.
+     Check your connection and try again."
+   - A row with zero videos shows its existing empty line.
 
 ## 7. Interactions
 
@@ -190,10 +192,12 @@ All screens follow the mockups in `Mobile Design.html`.
   recent pending action, and Undo cancels it before it is sent. Because nothing
   reaches the server until it commits, an undone remove never queues a YouTube
   removal. Rules that keep this honest:
-  - **Pending ids are hidden on render.** Board, row lists and the deck all
-    filter out ids in the queue. App.jsx reloads on visibility and job polling,
-    so without this filter a reload inside the 5s window would bring the card
-    back.
+  - **An optimistic overlay hides the card until the server confirms it.**
+    Each action writes an overlay entry (`hide`, `kept`, or `category`), and
+    every screen renders the board through it. An entry is dropped only when a
+    fresh board reflects it. Job polling reloads the board often, so a reload
+    that started before the commit can't bring the card back. Undo and a failed
+    send both remove the entry.
   - **The token is captured when the action is queued.** `getToken()` is async,
     and an async call can't be relied on inside `pagehide`. Each queued action
     stores the bearer token, so the flush can send it straight away.
@@ -278,7 +282,7 @@ All screens follow the mockups in `Mobile Design.html`.
    **Then: shell + Board + row list + sheet.** Covers manifest, icons,
    meta, safe areas, `useIsPhone`, `PhoneApp` and its tabs, Board, Row,
    SwipeRow, VideoSheet (vaul), PhoneSettings, and the import note.
-2. **Clean up.** Covers migration 009, the keep endpoint and `api.keepVideo`,
+2. **Clean up.** Covers migration 009, the keep endpoint,
    `deck.js`, `CleanupDeck`, undo, and the Done screen.
 3. **Polish and ship.** A `kole-jain` pass, a light-mode check, a reduced-motion
    check, then `/codex review`, the PR, applying migration 009 on prod, merge, and
@@ -288,7 +292,7 @@ All screens follow the mockups in `Mobile Design.html`.
 
 The global Claude × Codex split and AGENTS.md apply:
 
-- **Codex:** migration 009, `db.keep`, the keep route, `api.keepVideo`, and their
+- **Codex:** migration 009, `db.keep`, the keep route, and their
   server tests, handed off as a `.plans/` contract. Codex can also write the
   `deck.js` unit tests from the spec.
 - **Claude:** all phone UI (design taste, gestures, motion), the install basics,
@@ -296,7 +300,6 @@ The global Claude × Codex split and AGENTS.md apply:
 
 ## 12. Open checks
 
-- The Watch Later order direction (§5 Data). Settle it in the first plan task.
 - Whether `vaul` works with React 18.3 and the existing Vite build without extra
   config. Check it in the first Phase 1 task. If not, fall back to a hand-built
   sheet with the same behavior.
