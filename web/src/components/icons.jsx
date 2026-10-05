@@ -244,6 +244,24 @@ export const CardsIcon = p => (
   </Icon>
 )
 
+export const MoveIcon = p => (
+  <Icon {...p}>
+    <path d="M8 3 4 7l4 4" />
+    <path d="M4 7h16" />
+    <path d="m16 21 4-4-4-4" />
+    <path d="M20 17H4" />
+  </Icon>
+)
+
+export const SlidersIcon = p => (
+  <Icon {...p}>
+    <path d="M20 7h-9" />
+    <path d="M14 17H5" />
+    <circle cx="17" cy="17" r="3" />
+    <circle cx="7" cy="7" r="3" />
+  </Icon>
+)
+
 export const GoogleIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
     <path fill="#EA4335" d="M12 5.04c1.62 0 3.06.56 4.2 1.64l3.12-3.12C17.4 1.79 14.9.75 12 .75 7.55.75 3.72 3.3 1.86 7.02l3.66 2.84C6.4 7.13 8.98 5.04 12 5.04z" />
