@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "./api.js";
 import { SORTS, parseTopics, timeAgo, absoluteTime, isFirstRun, shouldAutoConnect } from "./lib.js";
+import { ROWS, DURATIONS } from "./rows.js";
 import { hasSession, signInWithGoogle, signInDev, isDevAuth, onAuthChange } from "./auth.js";
 import Row from "./components/Row.jsx";
 import CategoryView from "./components/CategoryView.jsx";
@@ -23,29 +24,8 @@ import {
   WLL_SYNC_PROGRESS,
 } from "./extension.js";
 import {
-  LearnIcon, EyeIcon, MusicIcon, GamepadIcon, ArchiveIcon, BrandMark,
-  SettingsIcon, UploadIcon, GoogleIcon, SyncIcon,
+  BrandMark, SettingsIcon, UploadIcon, GoogleIcon, SyncIcon,
 } from "./components/icons.jsx";
-
-const ROWS = [
-  { key: "learn", label: "Worth learning from", tint: "var(--cat-learn)", icon: LearnIcon,
-    empty: "No lessons pending." },
-  { key: "watch", label: "Worth watching", tint: "var(--cat-watch)", icon: EyeIcon,
-    empty: "Your eyes are off the hook." },
-  { key: "music", label: "Music", tint: "var(--cat-music)", icon: MusicIcon,
-    empty: "All quiet in here." },
-  { key: "entertainment", label: "Just for fun", tint: "var(--cat-entertainment)", icon: GamepadIcon,
-    empty: "No fun pending." },
-  { key: "outdated", label: "Outdated", tint: "var(--cat-outdated)", icon: ArchiveIcon,
-    empty: "Nothing has aged out yet." },
-];
-
-const DURATIONS = [
-  { key: "xs", label: "< 5 min", test: (d) => d != null && d < 300 },
-  { key: "md", label: "5–20 min", test: (d) => d != null && d >= 300 && d < 1200 },
-  { key: "lg", label: "20–60 min", test: (d) => d != null && d >= 1200 && d < 3600 },
-  { key: "xl", label: "1 hr +", test: (d) => d != null && d >= 3600 },
-];
 
 const ACTIVE_STATES = new Set(["queued", "running", "awaiting_batch"]);
 
