@@ -1,0 +1,63 @@
+/* ---------- Phone layout --------------------------------------------------
+   Rendered by web/src/phone/PhoneApp.jsx instead of the desktop board when
+   the screen is phone sized. Every class starts with ph- so nothing here can
+   touch the desktop. Existing tokens only: colour still means category.
+   The top safe area is padded on <body> (styles.css). This file pads the
+   bottom and the sides. */
+
+html.is-phone, html.is-phone body { overscroll-behavior-y: none; }
+
+.ph-app {
+  min-height: 100dvh;
+  padding: 0 max(var(--space-4), env(safe-area-inset-right)) var(--space-6) max(var(--space-4), env(safe-area-inset-left));
+  color: var(--foreground);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+.ph-app.has-tabs { padding-bottom: calc(64px + var(--space-6) + env(safe-area-inset-bottom)); }
+.ph-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* shared pieces */
+.ph-bar { display: flex; align-items: center; justify-content: space-between; min-height: 56px; }
+.ph-bar__actions { display: flex; gap: var(--space-2); }
+.ph-brand { display: flex; align-items: center; gap: var(--space-2); font: 400 24px/1 var(--font-display); }
+.ph-iconbtn { position: relative; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: var(--radius-pill); background: var(--secondary); color: var(--foreground); }
+.ph-iconbtn--ghost { background: none; }
+.ph-back { display: flex; align-items: center; gap: var(--space-1); min-height: 44px; padding: 0 var(--space-2) 0 0; border: 0; background: none; color: var(--foreground); font: 500 16px var(--font-body); }
+.ph-btn { display: flex; align-items: center; justify-content: center; gap: var(--space-2); width: 100%; min-height: 52px; border: 0; border-radius: var(--radius-lg); font: 600 16px var(--font-body); text-decoration: none; }
+.ph-btn--primary { background: var(--primary); color: var(--primary-foreground); }
+.ph-btn--ghost { min-height: 46px; background: var(--secondary); color: var(--foreground); font-size: 14px; }
+.ph-label { margin: var(--space-5) var(--space-1) var(--space-2); font: 500 13px var(--font-body); color: var(--muted); }
+.ph-note { font-size: 13px; line-height: 1.45; color: var(--faint); }
+.ph-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--tint, var(--faint)); }
+.ph-tile { flex: none; width: 38px; height: 38px; display: grid; place-items: center; border-radius: var(--radius-lg); color: var(--tint); background: color-mix(in srgb, var(--tint) 15%, transparent); }
+.ph-empty { padding: var(--space-6) var(--space-2); text-align: center; color: var(--muted); }
+
+/* board */
+.ph-hero { position: relative; overflow: hidden; padding: var(--space-5) 20px 20px; border: 1px solid var(--border); border-radius: calc(var(--radius-lg) * 2); background: var(--card); }
+.ph-hero__fan { position: absolute; top: 22px; right: 14px; width: 132px; height: 90px; }
+.ph-hero__fan img { position: absolute; width: 104px; aspect-ratio: 16 / 9; object-fit: cover; border: 2px solid var(--card); border-radius: var(--radius-md); box-shadow: var(--shadow-raised); }
+.ph-hero__fan img:nth-child(1) { top: 2px; right: 22px; transform: rotate(-9deg); }
+.ph-hero__fan img:nth-child(2) { top: 16px; right: 10px; transform: rotate(-2deg); }
+.ph-hero__fan img:nth-child(3) { top: 32px; right: 0; transform: rotate(6deg); }
+.ph-hero__label { font-size: 13px; color: var(--muted); }
+.ph-hero__count { display: flex; align-items: baseline; gap: var(--space-2); margin-top: 2px; }
+.ph-hero__count b { font: 400 60px/1 var(--font-display); }
+.ph-hero__count span { font-size: 16px; color: var(--muted); }
+.ph-hero__time { margin: var(--space-2) 0 20px; font: 500 13px var(--font-mono); }
+.ph-hero__job { margin: -12px 0 var(--space-4); font: 500 12px var(--font-mono); color: var(--muted); }
+.ph-hero__clear { font-size: 14px; color: var(--muted); }
+.ph-group { margin: 0; padding: 0; overflow: hidden; list-style: none; border: 1px solid var(--border); border-radius: calc(var(--radius-lg) * 2 - 4px); background: var(--card); }
+.ph-group li + li { border-top: 1px solid var(--border); }
+.ph-group__row { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 66px; padding: 0 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+.ph-group__row.is-empty { opacity: .55; }
+.ph-group__name { flex: 1; min-width: 0; font-size: 15px; font-weight: 500; line-height: 1.25; }
+.ph-group__name small { display: block; margin-top: 3px; font: 400 12px var(--font-mono); color: var(--muted); }
+.ph-group__count { font: 500 15px var(--font-mono); }
+.ph-group__chev { color: var(--faint); }
+
+/* first-run note */
+.ph-setup { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: 96px var(--space-2) 0; text-align: center; }
+.ph-setup__mark { width: 56px; height: 56px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--card); }
+.ph-setup h1 { font: 400 32px/1.1 var(--font-display); }
+.ph-setup p { max-width: 32ch; color: var(--muted); }

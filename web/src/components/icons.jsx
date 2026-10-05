@@ -237,6 +237,13 @@ export const ZapIcon = p => (
   </Icon>
 )
 
+export const CardsIcon = p => (
+  <Icon {...p}>
+    <rect x="5" y="3" width="14" height="18" rx="3" />
+    <path d="M9 21h6" />
+  </Icon>
+)
+
 export const GoogleIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
     <path fill="#EA4335" d="M12 5.04c1.62 0 3.06.56 4.2 1.64l3.12-3.12C17.4 1.79 14.9.75 12 .75 7.55.75 3.72 3.3 1.86 7.02l3.66 2.84C6.4 7.13 8.98 5.04 12 5.04z" />
