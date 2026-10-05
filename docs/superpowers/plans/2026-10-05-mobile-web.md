@@ -40,6 +40,7 @@
 | `web/src/rows.js` | new | `ROWS` and `DURATIONS`, moved out of `App.jsx` so the phone can share them |
 | `web/src/components/icons.jsx` | edit | Adds `CardsIcon`, `MoveIcon`, `SlidersIcon` |
 | `web/src/components/VideoDetail.jsx` | edit | Optional `youtubeNote` prop (the desktop passes nothing) |
+| `web/src/components/Settings.jsx` | edit | Optional `historyRemovesFromYoutube` prop (the desktop passes nothing) |
 | `web/src/phone/copy.js` | new | The two exact phone sentences |
 | `web/src/phone/deck.js` | new | Pure logic: deck, overlay, totals, swipe decision, session stats |
 | `web/src/phone/pendingQueue.js` | new | The undo queue and its API requests |
@@ -211,6 +212,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   3. Ask Joon "ship it?". Merge only after he says yes, with a merge commit (`gh pr merge --merge`), matching the repo history.
   4. After Vercel deploys, check that `curl -s https://laterlist-app.vercel.app/app/manifest.webmanifest` returns the JSON.
   5. **Real gate:** Joon deletes the old Home Screen icon, adds the site again from Safari, opens it from the Home Screen and signs in with Google.
+     - He also checks the status bar (clock and battery) in dark AND light theme (Settings → Appearance). With `black-translucent`, iOS draws it white, which can vanish on the light Gainsboro canvas. If it's unreadable in light, switch to `apple-mobile-web-app-status-bar-style` = `default`, drop the body padding rule, and update the test. Decide this on the device.
      - If he lands signed in, inside the app, continue.
      - If not, STOP. Add an email-code sign-in task (Supabase `signInWithOtp` + `verifyOtp`) before Task 9, and ask Joon to enable the Email provider in Supabase.
   6. Then run `git fetch origin && git merge origin/main` on the branch so later PRs are clean.
@@ -219,7 +221,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task 2: Server `kept_at` + keep route (Codex)
 
-Hand this task to Codex with the `codex:codex-rescue` agent, using GPT-6 Sol at medium reasoning. Codex works in its own worktree on branch `feat/mobile-keep`, cut from `feat/mobile-web`. The contract is in `.plans/mobile-keep.md`, which copies this task. Claude reviews the diff, then merges `feat/mobile-keep` into `feat/mobile-web`.
+Hand this task to Codex with the `codex:codex-rescue` agent, using GPT-6 Sol at medium reasoning.
+- Pass it the contract by absolute path: `/Users/joonwoopark/projects/laterlist/.claude/worktrees/mobile-web/.plans/mobile-keep.md`. The file is untracked, so a new worktree won't contain it.
+- Codex works in its own worktree at the absolute path `/Users/joonwoopark/projects/laterlist-mobile-keep`, on branch `feat/mobile-keep` cut from `feat/mobile-web`.
+- Claude reviews the diff, merges `feat/mobile-keep` into `feat/mobile-web`, then copies `/Users/joonwoopark/projects/laterlist-mobile-keep/migration-009-prod.txt` into this worktree's root, untracked.
 
 **Files:**
 - Modify: `server/migrations.js` (append to `MIGRATIONS`, after `008-youtube-removals`)
@@ -314,7 +319,7 @@ git commit -m "feat(server): remember kept videos (kept_at + POST /api/videos/:i
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 8: Prod SQL for later (no prod write now).** Write `migration-009-prod.txt` in the worktree root. It is untracked and never committed. Joon pastes it into the Supabase SQL editor in Task 10.
+- [ ] **Step 8: Prod SQL for later (no prod write now).** Write `migration-009-prod.txt` in the root of the worktree doing this task. It is untracked and never committed. Claude copies it into the `mobile-web` worktree root after the merge, and Joon pastes it into the Supabase SQL editor in Task 10.
 
 ```sql
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS kept_at timestamptz;
@@ -1973,7 +1978,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `web/src/phone/useIsPhone.js`, `web/src/phone/PhoneSettings.jsx`, `web/src/phone/PhoneApp.jsx`
-- Modify: `web/src/App.jsx` (imports, one hook call, one early return), `web/src/main.jsx` (CSS import), `web/src/phone/phone.css` (append the shell section)
+- Modify: `web/src/App.jsx` (imports, one hook call, one early return), `web/src/main.jsx` (CSS import), `web/src/phone/phone.css` (append the shell section), `web/src/components/Settings.jsx` (one optional prop)
 - Test: `tests/phone-app.test.js`
 
 **Interfaces:**
@@ -1985,7 +1990,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Produces:
   - `PHONE_QUERY`
   - `useIsPhone(): boolean`
-  - `<PhoneSettings me reload onToast onRetakeQuiz />`
+  - `<PhoneSettings me reload onToast onRetakeQuiz removalQueued />`
+  - `Settings` accepts `historyRemovesFromYoutube?: boolean`
   - `<PhoneApp me board job reload onSummaryUsed />`
 
 - [ ] **Step 1: Write the failing test** `tests/phone-app.test.js`
@@ -2054,6 +2060,16 @@ export function useIsPhone() {
 }
 ```
 
+- [ ] **Step 4a: Let the phone set the History hint.** Settings' History block calls `CleanupChecklist`, which only promises YouTube removal when the extension is connected. On the phone that would wrongly tell users to clean YouTube by hand. In `web/src/components/Settings.jsx`:
+  1. Add `historyRemovesFromYoutube,` to the props list, after `onImportManually,`.
+  2. Change the History line to:
+
+```jsx
+        <CleanupChecklist removesFromYoutube={historyRemovesFromYoutube
+          ?? (removeFromYoutube && extensionConnected && extensionVersionOk)} />
+```
+The desktop doesn't pass the prop, so its behaviour is unchanged. Do not flip `extensionConnected` on the phone instead: that would also show the desktop's Manual import block.
+
 - [ ] **Step 4: Create** `web/src/phone/PhoneSettings.jsx`
 
 ```jsx
@@ -2065,7 +2081,7 @@ import { SYNC_NOTE } from "./copy.js";
 // The desktop Settings, minus the extension (phones can't run it).
 const NO_EXTENSION = { checking: false, present: false, connected: false, mismatch: false, isChromium: false };
 
-export default function PhoneSettings({ me, reload, onToast, onRetakeQuiz }) {
+export default function PhoneSettings({ me, reload, onToast, onRetakeQuiz, removalQueued }) {
   const toggleRemoveFromYoutube = async (enabled) => {
     try {
       await api.setPrefs({ removeFromYoutube: enabled });
@@ -2081,7 +2097,7 @@ export default function PhoneSettings({ me, reload, onToast, onRetakeQuiz }) {
         extension={{ ...NO_EXTENSION, accountEmail: me.email }} onConnectExtension={async () => null}
         extensionBusy={false} extensionConnected={false} extensionVersionOk={false}
         removeFromYoutube={me.removeFromYoutube} onToggleRemoveFromYoutube={toggleRemoveFromYoutube}
-        onImportManually={() => {}} />
+        onImportManually={() => {}} historyRemovesFromYoutube={removalQueued} />
     </div>
   );
 }
@@ -2252,7 +2268,7 @@ export default function PhoneApp({ me, board, job, reload, onSummaryUsed }) {
         onTldr={(v) => push({ name: "detail", video: v, intent: "tldr" })} />
     );
   } else if (screen.name === "settings") {
-    body = <PhoneSettings me={me} reload={reload} onToast={flashToast} onRetakeQuiz={retakeQuiz} />;
+    body = <PhoneSettings me={me} reload={reload} onToast={flashToast} onRetakeQuiz={retakeQuiz} removalQueued={removalQueued} />;
   } else if (screen.name === "quiz") {
     body = <Onboarding onDone={() => reload().then(back)} />;
   } else if (screen.name === "detail") {
@@ -2369,7 +2385,7 @@ Expected: PASS, and the build succeeds.
 - [ ] **Step 9: Commit**
 
 ```bash
-git add web/src/phone web/src/App.jsx web/src/main.jsx tests/phone-app.test.js
+git add web/src/phone web/src/App.jsx web/src/main.jsx web/src/components/Settings.jsx tests/phone-app.test.js
 git commit -m "feat(phone): phone shell with tabs, undo toast and history, wired into App
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -2385,7 +2401,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
       "name": "laterlist-mobile",
       "runtimeExecutable": "bash",
       "runtimeArgs": ["-lc", "npm run build:web && npm run build:collector && node server/index.js"],
-      "env": { "DEV_FAKE_AUTH": "1", "FAKE_LLM": "1", "BETA_PRO_FOR_ALL": "1", "PORT": "4410", "PGLITE_DIR": "./dev-pgdata-mobile" },
+      "env": { "DEV_FAKE_AUTH": "1", "FAKE_LLM": "1", "BETA_PRO_FOR_ALL": "1", "YOUTUBE_REMOVAL": "all", "PORT": "4410", "PGLITE_DIR": "./dev-pgdata-mobile" },
       "port": 4410
     }
   ]
@@ -2405,7 +2421,8 @@ Expected: JSON with `added` greater than 0. Wait about 10 s for the fake classif
   2. Tap a row. The list has thumbnails on the left. Drag a row left with `left_click_drag` and confirm Move and Remove appear. The length chips filter. The sort select works. Search filters.
   3. Tap a video. The sheet slides up, and dragging it down closes it. Move to shows five rows with the current one disabled. Play here opens the detail screen with the player, and Back returns. TL;DR runs (FAKE_LLM).
   4. Clean up tab. Drag the card left past a third: the REMOVE stamp shows, the card flies off, and the toast shows Undo. Tap Undo and the card returns. Drag right to keep. Use the buttons. Finish the deck and check the Done screen numbers.
-  5. Settings tab: the sync note shows, no extension block, and the theme toggle works.
+  5. Settings tab: the sync note shows, there is no extension block, and the theme toggle works.
+  5b. YouTube copy, both ways. With no imports token, the sheet and the Done screen show no YouTube sentence, and the History hint says to clean YouTube by hand. Then create a token in the page with `await fetch("/api/tokens",{method:"POST",headers:{Authorization:"Bearer dev:joon@test.dev","Content-Type":"application/json"},body:JSON.stringify({scope:"imports",label:"phone test"})})` and reload. Now the sheet, the detail note and the Done screen show the exact REMOVAL_NOTE, and the History hint says videos also leave YouTube.
   6. `read_console_messages` with `onlyErrors`: none.
   7. Wait 6 s after a remove, then reload the page: the removed video stays gone, so the server got it.
   8. Desktop check: run `resize_window` with preset desktop (1440 wide) and reload. The desktop board is unchanged: topbar, chips, horizontal rows. Screenshot it.
@@ -2422,6 +2439,7 @@ Expected: JSON with `added` greater than 0. Wait about 10 s for the fake classif
 - [ ] **Step 1: Polish pass.** Load the `kole-jain` skill and apply it to the phone screens using screenshots at 390×844, in both dark and light. Keep the approved structure from `Mobile Design.html`. Only spacing, hierarchy and detail fixes are allowed. Rerun `npm test` and commit with `style(phone): polish pass`.
 - [ ] **Step 2: Full check.** Run `npm test && npm run build:web`. Expected: all green.
 - [ ] **Step 3: Cross-review.** Run `/codex review` on the branch diff against `origin/main`. Fix every real finding, rerun `npm test`, and commit.
+- [ ] **Step 3b: Re-merge main.** Run `git fetch origin && git merge origin/main`. The other session's `App.jsx` work may have landed with its own history handling, and the likely collisions are a second `popstate` listener and the `rows.js` extraction. Resolve them, run `npm test`, then repeat Task 9 Step 11 items 2, 3 and 4 (back navigation, the sheet, the deck) at 390×844.
 - [ ] **Step 4: PR.** Push, then run `gh pr create --title "Laterlist on the phone: Board, rows, sheet, swipe Clean up"`. The body lists:
   - the screens
   - the one server change (migration 009)
