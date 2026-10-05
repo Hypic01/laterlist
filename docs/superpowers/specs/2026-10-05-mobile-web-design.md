@@ -74,16 +74,23 @@ Done when:
 
 ### Where the phone layout plugs in
 
-- `web/src/phone/useIsPhone.js` is a `matchMedia("(max-width: 640px)")` hook that
-  updates on resize and rotation.
-- `App.jsx` keeps owning all state and handlers: `me`, `board`, `move`,
-  `dismiss`, `done`, `openDetail`, `showToast`, `reload`, theme, and history nav.
+- `web/src/phone/useIsPhone.js` is a `matchMedia` hook on
+  `(max-width: 640px), (pointer: coarse) and (max-height: 500px)`. The second
+  half matters because an iPhone held sideways is about 850px wide; without it,
+  rotating the phone mid-session would unmount the phone layout.
+- `App.jsx` keeps owning the data: `me`, `board`, `reload`, theme, and history nav.
   When `isPhone` is true and the user is past the auth gate, `App.jsx` renders
-  `<PhoneApp …/>` instead of the desktop header and main area, passing the same
-  data and handlers as props. The desktop branch is left untouched.
-- History: phone screens reuse the existing `pushNav` / `popstate` entries, so
-  the iOS back swipe works in standalone mode. Values: `view` = board | cleanup |
-  settings | a row key, plus a `sheet` entry for the open video.
+  `<PhoneApp …/>` instead of the desktop header and main area. The desktop branch
+  is left untouched.
+- The phone does **not** use App's `move` / `dismiss` / `done` handlers. Those
+  call the API right away, reload, and show the desktop toast, which would break
+  undo. Phone actions go through the pending queue (§7), and the queue calls
+  `api.*` itself when an action commits.
+- History: phone screens reuse the existing `pushNav` / `popstate` entries.
+  Values: `view` = board | cleanup | settings | a row key, plus a `sheet` entry
+  for the open video. Every screen has a visible back or close button. The iOS
+  edge back swipe in standalone mode is **unverified**, so the iPhone check
+  covers it and nothing depends on it.
 
 ### New files (all under `web/src/phone/`)
 
@@ -96,7 +103,8 @@ Done when:
 | `CleanupDeck.jsx` | Card stack: progress ("13 of 61"), the drag card with a REMOVE / KEEP stamp, the Remove / Watch / Keep buttons, "Wrong row? Move it", the empty state, and the Done screen. |
 | `VideoSheet.jsx` | `vaul` Drawer holding the actions in decision 6. Move to opens a nested list of the 5 rows inside the same drawer. |
 | `PhoneSettings.jsx` | Wraps the existing `Settings` component with phone spacing. It hides the extension-connect controls and shows the "sync on your computer" note. |
-| `deck.js` | Pure logic: `buildDeck(board, { row })` returns scanned videos where `kept_at` is null, oldest saved first. Also `pendingQueue` for undo (§7). Unit tested. |
+| `deck.js` | Pure logic: `buildDeck(board, { row, pendingIds })` returns scanned videos where `kept_at` is null and the id isn't pending, oldest saved first. Unit tested. |
+| `pendingQueue.js` | The undo queue (§7). It is a single module-level instance, not React state, so it survives PhoneApp unmounting. Unit tested with fake timers. |
 | `phone.css` | Phone styles, imported from `main.jsx` and scoped under `.phone-app` so the desktop can't be affected. It uses only existing tokens. |
 
 ### Data
@@ -170,14 +178,30 @@ All screens follow the mockups in `Mobile Design.html`.
   with no fly-off.
 - **Swipe (row).** The row reveals two actions 76px wide. A long swipe left past
   60% fires Remove directly. A vertical scroll never triggers it.
+- **Touch details.** `SwipeRow` uses `touch-action: pan-y` so vertical scrolling
+  stays native. The deck card uses `touch-action: none`. Both handle
+  `pointercancel` by snapping back, which iOS fires when the system takes over a
+  gesture.
 - **Buttons always work.** Every gesture has a button, so swiping is never the
   only path, and the buttons have accessible labels.
 - **Undo (client-side deferred commit).** A remove, keep or move goes into
-  `pendingQueue` and leaves the UI right away. The API call fires 5s later. The
-  undo toast shows the most recent pending action, and Undo cancels it before it
-  is sent. On `visibilitychange` (hidden) or `pagehide`, every pending action is
-  flushed with `fetch(..., { keepalive: true })`. Because nothing reaches the
-  server until it commits, an undone remove never queues a YouTube removal.
+  `pendingQueue` and leaves the UI right away. The API call fires 5s later, and
+  then `reload()` runs once (debounced) to resync. The undo toast shows the most
+  recent pending action, and Undo cancels it before it is sent. Because nothing
+  reaches the server until it commits, an undone remove never queues a YouTube
+  removal. Rules that keep this honest:
+  - **Pending ids are hidden on render.** Board, row lists and the deck all
+    filter out ids in the queue. App.jsx reloads on visibility and job polling,
+    so without this filter a reload inside the 5s window would bring the card
+    back.
+  - **The token is captured when the action is queued.** `getToken()` is async,
+    and an async call can't be relied on inside `pagehide`. Each queued action
+    stores the bearer token, so the flush can send it straight away.
+  - **Flush on leave.** On `visibilitychange` (hidden), `pagehide`, and PhoneApp
+    unmount, every pending action is sent at once with
+    `fetch(..., { keepalive: true })`.
+  - **The phone has its own toast.** Phone actions never call the desktop
+    `showToast` or its "The AI learns…" copy.
 - **Done vs dismiss.** "Watched it" calls `markDone`. Remove and "Not interested"
   call `dismissVideo`. The server-side YouTube queue is unchanged.
 
@@ -192,8 +216,11 @@ All screens follow the mockups in `Mobile Design.html`.
   - `viewport-fit=cover` in the viewport meta
 - `web/public/app/manifest.webmanifest`:
   - `name` "Laterlist", `short_name` "Laterlist"
-  - `start_url` "./" and `scope` "./". Relative values keep both production
-    origins working.
+  - `start_url` "/app/" and `scope` "/". Both are origin-relative, so both
+    production domains keep working. The scope has to be "/": Google sign-in
+    returns to `/app`, with no trailing slash. With scope "/app/", that return
+    would land outside the app, and iOS would open it as an outside page, which
+    is exactly how the session gets lost.
   - `display` "standalone"
   - `background_color` and `theme_color` `#191919`
   - icons at 192 and 512, plus a 512 maskable icon
@@ -222,19 +249,33 @@ All screens follow the mockups in `Mobile Design.html`.
   - no sideways scroll and no console errors
   - the desktop matches the pre-change screenshots
   - swipes and undo work with mouse drag in the browser pane
-- **Joon's real iPhone.** Install, sign in, run a clean-up session, and check
-  that removals leave YouTube after the next desktop open.
+- **What the browser pane can't prove.** Mouse drags there never trigger iOS
+  `pointercancel` or touch scrolling, so the pane only checks layout and the
+  basic logic.
+- **Joon's real iPhone (checklist).**
+  - Install from Safari and open from the Home Screen.
+  - Sign in with Google and land signed in, inside the app.
+  - Swipe cards and rows while the list scrolls.
+  - Rotate mid-session: the layout and the pending actions survive.
+  - Open in YouTube hands off to the YouTube app. If the standalone app opens it
+    in a Safari sheet instead, add a fallback link then.
+  - Removals leave YouTube after the next desktop open.
+  - Note whether the edge back swipe works.
 - The existing suite (`npm test`) stays green, with no existing test edited to
   pass.
 
 ## 10. Phases
 
-0. **Sign-in check (Joon, about 1 minute, no code).** On the iPhone, open
+0. **Early sign-in signal (Joon, about 1 minute, no code).** On the iPhone, open
    laterlist-app.vercel.app/app in Safari, then Share, Add to Home Screen, with
    "Open as Web App" on. Open it from the Home Screen and sign in with Google.
-   If it lands signed in, there's no fallback work. If not, add the email-code
-   fallback to Phase 1.
-1. **Install basics + shell + Board + row list + sheet.** Covers manifest, icons,
+   This is only an early signal, because today's site has no manifest and its
+   default scope differs.
+1. **Install basics first, then the real gate.** Ship the manifest, icons and
+   meta (§8) alone and deploy them. Joon re-installs and signs in on his iPhone.
+   This re-test is the real gate. If sign-in fails, the email-code fallback goes
+   in before anything else.
+   **Then: shell + Board + row list + sheet.** Covers manifest, icons,
    meta, safe areas, `useIsPhone`, `PhoneApp` and its tabs, Board, Row,
    SwipeRow, VideoSheet (vaul), PhoneSettings, and the import note.
 2. **Clean up.** Covers migration 009, the keep endpoint and `api.keepVideo`,
