@@ -121,14 +121,16 @@ html.is-phone, html.is-phone body { overscroll-behavior-y: none; }
 .ph-deck__count { font: 500 13px var(--font-mono); color: var(--muted); }
 .ph-progress { height: 3px; overflow: hidden; border-radius: 2px; background: var(--secondary); }
 .ph-progress i { display: block; height: 100%; background: var(--foreground); transition: width var(--speed) var(--ease); }
-.ph-deck__stack { position: relative; flex: 1; min-height: 380px; margin-top: var(--space-5); }
-.ph-card { position: absolute; inset: 0 0 auto; overflow: hidden; border: 1px solid var(--border-strong); border-radius: calc(var(--radius-lg) * 2); background: var(--card); box-shadow: var(--shadow-raised); touch-action: none; user-select: none; -webkit-user-select: none; will-change: transform; }
-.ph-card--back { transform: translateY(16px) scale(.94); opacity: .55; pointer-events: none; }
+/* Both cards share one grid cell, so the stack centres in the free space. */
+.ph-deck__stack { position: relative; flex: 1; display: grid; align-items: center; min-height: 380px; margin-top: var(--space-4); }
+.ph-card { grid-area: 1 / 1; position: relative; overflow: hidden; border: 1px solid var(--border-strong); border-radius: calc(var(--radius-lg) * 2); background: var(--card); box-shadow: var(--shadow-raised); touch-action: none; user-select: none; -webkit-user-select: none; will-change: transform; }
+.ph-card--back { transform: translateY(14px) scale(.94); transform-origin: 50% 100%; opacity: .55; pointer-events: none; }
 .ph-card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: var(--secondary); pointer-events: none; }
 .ph-card__body { padding: var(--space-4) 18px 18px; }
 .ph-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border: 1px solid var(--border-strong); border-radius: var(--radius-pill); font-size: 12px; font-weight: 500; }
 .ph-pill .ph-dot { width: 8px; height: 8px; }
-.ph-card h2 { margin: var(--space-3) 0 6px; font: 600 18px/1.3 var(--font-body); }
+/* Two lines, always, so every card is the same height and the next one peeks out. */
+.ph-card h2 { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.6em; margin: var(--space-3) 0 6px; font: 600 18px/1.3 var(--font-body); }
 .ph-card__meta { font: 400 12px var(--font-mono); color: var(--muted); }
 .ph-card__tldr { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin-top: var(--space-4); padding: 0 var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: none; color: var(--foreground); font: 500 13px var(--font-body); }
 .ph-stamp { position: absolute; top: 22px; z-index: 2; padding: 6px 12px 4px; border: 2.5px solid currentColor; border-radius: var(--radius-lg); background: color-mix(in srgb, var(--background) 70%, transparent); font: 400 26px/1 var(--font-display); letter-spacing: .06em; pointer-events: none; }
@@ -167,7 +169,8 @@ html.is-phone, html.is-phone body { overscroll-behavior-y: none; }
 .ph-toast:has(button) { padding-right: var(--space-2); }
 .ph-toast span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .ph-toast button { flex: none; min-height: 32px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: var(--primary); color: var(--primary-foreground); font: 600 13px var(--font-body); }
-.ph-app:not(.has-tabs) .ph-toast { top: calc(env(safe-area-inset-top) + 72px); bottom: auto; }
+/* Without tabs (Clean up, detail) the toast sits over the deck's hint line, clear of the card. */
+.ph-app:not(.has-tabs) .ph-toast { bottom: calc(env(safe-area-inset-bottom) + 164px); }
 
 /* desktop screens reused inside the phone shell */
 .ph-detail .detail__actions { flex-wrap: wrap; }

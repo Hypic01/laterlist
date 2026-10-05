@@ -26,9 +26,11 @@ function DeckCard({ video, back = false, cardRef, style, stamp, stampOpacity, ha
         {row ? <span className="ph-pill" style={{ "--tint": row.tint }}><span className="ph-dot" aria-hidden="true" />{row.label}</span> : null}
         <h2>{video.title}</h2>
         {meta ? <p className="ph-card__meta">{meta}</p> : null}
-        {!back && onTldr ? (
+        {back ? (
+          <span className="ph-card__tldr"><SummaryIcon size={14} /> TL;DR</span>
+        ) : (
           <button className="ph-card__tldr" onClick={() => onTldr(video)}><SummaryIcon size={14} /> TL;DR</button>
-        ) : null}
+        )}
       </div>
     </article>
   );
