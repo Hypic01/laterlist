@@ -141,6 +141,9 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
+/* Home Screen app on iPhone: the status bar is translucent, so keep content
+   out from under the clock and the notch. env() is 0 everywhere else. */
+body { padding-top: env(safe-area-inset-top, 0px); }
 /* Flat monochrome canvas — no coloured bloom, no film grain. */
 button { font-family: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
