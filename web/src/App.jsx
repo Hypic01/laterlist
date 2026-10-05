@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import * as api from "./api.js";
 import { SORTS, parseTopics, timeAgo, absoluteTime, isFirstRun, shouldAutoConnect } from "./lib.js";
 import { ROWS, DURATIONS } from "./rows.js";
+import { useIsPhone } from "./phone/useIsPhone.js";
 import { hasSession, signInWithGoogle, signInDev, isDevAuth, onAuthChange } from "./auth.js";
 import Row from "./components/Row.jsx";
 import CategoryView from "./components/CategoryView.jsx";
@@ -28,6 +29,8 @@ import {
 } from "./components/icons.jsx";
 
 const ACTIVE_STATES = new Set(["queued", "running", "awaiting_batch"]);
+// Only phones download the phone layout (and vaul with it).
+const PhoneApp = lazy(() => import("./phone/PhoneApp.jsx"));
 
 function AuthGate({ autoSignIn = false }) {
   const [email, setEmail] = useState("");
@@ -101,6 +104,7 @@ export default function App() {
   const doneNoticeRef = useRef(null);
   const activeSeenRef = useRef(new Set());
   const meEmail = me?.email || "";
+  const isPhone = useIsPhone();
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -481,6 +485,14 @@ export default function App() {
   if (authed === null) return <div className="loading">loading…</div>;
   if (!authed) return <AuthGate autoSignIn={signinRequested} />;
   if (!me || !board) return <div className="loading">loading…</div>;
+  // Phones get their own layout (web/src/phone/). Everything below is desktop.
+  if (isPhone) {
+    return (
+      <Suspense fallback={<div className="loading">loading…</div>}>
+        <PhoneApp me={me} board={board} job={job} reload={reload} onSummaryUsed={onSummaryUsed} />
+      </Suspense>
+    );
+  }
 
   const totalVideos = Object.values(me.counts).reduce((a, b) => a + b, 0);
   const waitingCount = ACTIVE_STATES.has(job?.state) ? 0 : me.counts.unscanned;

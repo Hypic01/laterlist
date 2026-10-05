@@ -21,6 +21,7 @@ export default function Settings({
   removeFromYoutube = false,
   onToggleRemoveFromYoutube = () => {},
   onImportManually,
+  historyRemovesFromYoutube,
 }) {
   const [busy, setBusy] = useState(false);
   const [tokens, setTokens] = useState([]);
@@ -286,7 +287,8 @@ export default function Settings({
 
       <div className="settings__block">
         <h3>History</h3>
-        <CleanupChecklist removesFromYoutube={removeFromYoutube && extensionConnected && extensionVersionOk} />
+        <CleanupChecklist removesFromYoutube={historyRemovesFromYoutube
+          ?? (removeFromYoutube && extensionConnected && extensionVersionOk)} />
       </div>
 
       <div className="settings__block settings__danger">
