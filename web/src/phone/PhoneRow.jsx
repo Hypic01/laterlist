@@ -4,7 +4,7 @@ import { SORTS, formatDuration } from "../lib.js";
 import { formatTotal, totalSeconds } from "./deck.js";
 import SwipeRow from "./SwipeRow.jsx";
 import {
-  ArrowLeftIcon, CardsIcon, ChevronRightIcon, MoreIcon, SearchIcon, SlidersIcon,
+  ArrowLeftIcon, CardsIcon, ChevronRightIcon, MoreIcon, SearchIcon, SortIcon,
 } from "../components/icons.jsx";
 
 // One row as a plain list (rowKey), or every row with search open (rowKey null).
@@ -33,7 +33,7 @@ export default function PhoneRow({ rowKey, board, startSearch = false, onBack, o
         <button className="ph-back" onClick={onBack}><ArrowLeftIcon size={18} /> Board</button>
         <div className="ph-bar__actions">
           <label className="ph-iconbtn ph-sort">
-            <SlidersIcon size={18} />
+            <SortIcon size={18} />
             <span className="ph-sr">Sort videos</span>
             <select value={sort} onChange={(e) => setSort(e.target.value)}>
               {Object.entries(SORTS).map(([key, s]) => <option key={key} value={key}>{s.label}</option>)}
