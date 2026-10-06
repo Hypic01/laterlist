@@ -112,7 +112,9 @@ export default function App() {
     toastRef.current = setTimeout(() => setToast(null), 4600);
   }, []);
 
+  const reloadGenRef = useRef(0);
   const reload = useCallback(async () => {
+    const gen = ++reloadGenRef.current;
     // Job first, then the board. The job fetch piggybacks the serverless
     // worker tick, which can sort a small backlog within this very request —
     // fetching in parallel let the board land before the tick finished, so
@@ -120,6 +122,9 @@ export default function App() {
     const j = await api.getCurrentJob();
     if (j.job && ACTIVE_STATES.has(j.job.state)) activeSeenRef.current.add(j.job.id);
     const [m, b] = await Promise.all([api.getMe(), api.getBoard()]);
+    // A slower, older reload must not overwrite a newer one (it would bring
+    // back a video the newer board already shows as removed).
+    if (gen !== reloadGenRef.current) return { m, b, j: j.job };
     setMe(m);
     setBoard(b);
     setJob(j.job);

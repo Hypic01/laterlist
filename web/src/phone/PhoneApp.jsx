@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import * as api from "../api.js";
 import { isFirstRun } from "../lib.js";
 import { ROWS } from "../rows.js";
-import { applyOverlay, buildDeck, findVideo, pruneOverlay, sessionStats } from "./deck.js";
+import { applyOverlay, buildDeck, findVideo, pruneOverlay, revertEffect, sessionStats } from "./deck.js";
 import { COMMIT_DELAY_MS, pendingQueue } from "./pendingQueue.js";
 import { REMOVAL_NOTE } from "./copy.js";
 import PhoneBoard from "./PhoneBoard.jsx";
@@ -18,7 +18,7 @@ import "./phone.css";
 
 const TOAST_TEXT = { dismiss: "Removed", done: "Marked watched", keep: "Kept" };
 const TAB_SCREENS = new Set(["board", "row", "settings"]);
-const dropKey = (obj, key) => { const next = { ...obj }; delete next[key]; return next; };
+const ROOT = [{ name: "board" }];
 
 export default function PhoneApp({ me, board, job, reload, onSummaryUsed }) {
   // Screens form a stack. A "sheet" entry sits on top of the screen it covers.
@@ -28,9 +28,15 @@ export default function PhoneApp({ me, board, job, reload, onSummaryUsed }) {
   const [log, setLog] = useState([]);
   const [undone, setUndone] = useState(() => new Set());
   const [importLinked, setImportLinked] = useState(false);
-  const [sheetVideo, setSheetVideo] = useState(null);
   const stackRef = useRef(stack);
   stackRef.current = stack;
+  const overlayRef = useRef(overlay);
+  overlayRef.current = overlay;
+  const reloadRef = useRef(reload);
+  reloadRef.current = reload;
+  const effectsRef = useRef(new Map()); // action key -> { id, effect, previous }
+  const pendingTabRef = useRef(null);
+  const lastSheetVideoRef = useRef(null);
   const toastTimer = useRef(null);
   const reloadTimer = useRef(null);
 
@@ -40,25 +46,42 @@ export default function PhoneApp({ me, board, job, reload, onSummaryUsed }) {
   const view = useMemo(() => applyOverlay(board, overlay), [board, overlay]);
   const deckAll = useMemo(() => buildDeck(view), [view]);
   const removalQueued = Boolean(me.removeFromYoutube) && importLinked;
-  const liveSheetVideo = sheetVideo ? findVideo(view, sheetVideo.id) ?? sheetVideo : null;
+  // The sheet keeps its last video while it animates closed.
+  if (sheetOpen) lastSheetVideoRef.current = top.video;
+  const sheetBase = lastSheetVideoRef.current;
+  const liveSheetVideo = sheetBase ? findVideo(view, sheetBase.id) ?? sheetBase : null;
 
-  // ---- navigation: the stack is mirrored into history so Back closes the top
-  const push = (entry) => {
-    history.pushState({ phoneDepth: stackRef.current.length }, "");
-    setStack([...stackRef.current, entry]);
+  // ---- navigation: every history entry holds a full snapshot of the stack, so
+  // Back AND Forward (Safari's edge swipes) restore exactly what was there.
+  const commitStack = (next, mode) => {
+    if (mode === "push") history.pushState({ phoneStack: next }, "");
+    else history.replaceState({ phoneStack: next }, "");
+    stackRef.current = next;
+    setStack(next);
   };
+  const push = (entry) => commitStack([...stackRef.current, entry], "push");
   const back = () => history.back();
-  const replaceTop = (entry) => setStack((s) => [...s.slice(0, -1), entry]);
+  const replaceTop = (entry) => commitStack([...stackRef.current.slice(0, -1), entry], "replace");
   const switchTab = (entry) => {
     const depth = stackRef.current.length - 1;
-    setStack([entry]);
-    if (depth > 0) history.go(-depth);
+    if (depth === 0) { commitStack([entry], "replace"); return; }
+    pendingTabRef.current = entry; // applied when the history jump lands
+    history.go(-depth);
   };
   useEffect(() => {
-    history.replaceState({ phoneDepth: 0 }, "");
+    history.replaceState({ phoneStack: ROOT }, "");
     const onPop = (e) => {
-      const depth = Number(e.state?.phoneDepth) || 0;
-      setStack((s) => s.slice(0, depth + 1));
+      if (pendingTabRef.current) {
+        const next = [pendingTabRef.current];
+        pendingTabRef.current = null;
+        history.replaceState({ phoneStack: next }, "");
+        stackRef.current = next;
+        setStack(next);
+        return;
+      }
+      const restored = Array.isArray(e.state?.phoneStack) ? e.state.phoneStack : ROOT;
+      stackRef.current = restored;
+      setStack(restored);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -79,8 +102,10 @@ export default function PhoneApp({ me, board, job, reload, onSummaryUsed }) {
 
   useEffect(() => pendingQueue.subscribe((event) => {
     if (event.type !== "settled") return;
+    const entry = effectsRef.current.get(event.key);
+    effectsRef.current.delete(event.key);
     if (!event.ok) {
-      setOverlay((o) => dropKey(o, event.action.id));
+      if (entry) setOverlay((o) => revertEffect(o, entry.id, entry.effect, entry.previous));
       flashToast("Couldn't save that. Check your connection and try again.");
     }
     clearTimeout(reloadTimer.current);
@@ -97,13 +122,18 @@ export default function PhoneApp({ me, board, job, reload, onSummaryUsed }) {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", flush);
       document.documentElement.classList.remove("is-phone");
-      flush();
+      // Turning into the desktop layout mid-session: send what's pending, then
+      // refresh the board the desktop is about to show.
+      void pendingQueue.flush({ keepalive: true }).then(() => reloadRef.current().catch(() => {}));
     };
   }, []);
 
   const act = (action, video, effect, text) => {
+    const previous = overlayRef.current[video.id];
+    overlayRef.current = { ...overlayRef.current, [video.id]: effect };
     setOverlay((o) => ({ ...o, [video.id]: effect }));
     const key = pendingQueue.enqueue(action);
+    effectsRef.current.set(key, { id: video.id, effect, previous });
     setLog((l) => [...l, { key, kind: action.kind, video }]);
     flashToast(text, key);
   };
@@ -116,8 +146,10 @@ export default function PhoneApp({ me, board, job, reload, onSummaryUsed }) {
   const undo = () => {
     if (!toast?.key) return;
     const action = pendingQueue.undo(toast.key);
+    const entry = effectsRef.current.get(toast.key);
+    effectsRef.current.delete(toast.key);
     if (action) {
-      setOverlay((o) => dropKey(o, action.id));
+      if (entry) setOverlay((o) => revertEffect(o, entry.id, entry.effect, entry.previous));
       setUndone((u) => new Set(u).add(toast.key));
     }
     setToast(null);
@@ -125,8 +157,7 @@ export default function PhoneApp({ me, board, job, reload, onSummaryUsed }) {
 
   // ---- screens
   const openSheet = (video, { panel = "main", fromDeck = false } = {}) => {
-    setSheetVideo(video);
-    push({ name: "sheet", panel, fromDeck });
+    push({ name: "sheet", video, panel, fromDeck });
   };
   const deckEntry = (row) => ({ name: "deck", row, startCount: buildDeck(view, { row }).length });
   const resetSession = () => { setLog([]); setUndone(new Set()); };

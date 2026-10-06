@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { ROWS } from "../rows.js";
 import { formatDuration } from "../lib.js";
-import { swipeOutcome } from "./deck.js";
+import { releaseVelocity, swipeOutcome } from "./deck.js";
 import { REMOVAL_NOTE, SYNC_NOTE } from "./copy.js";
 import { CheckIcon, PlayIcon, SummaryIcon, XIcon } from "../components/icons.jsx";
 
@@ -77,7 +77,12 @@ export default function CleanupDeck({ deck, startCount, stats, removalQueued, on
 
   const decide = (outcome) => {
     if (leaving) return;
-    if (reducedMotion()) { onDecide(outcome, card); return; }
+    if (reducedMotion()) {
+      // No fly-off, but the next card must not inherit this one's drag.
+      setDrag((d) => ({ ...d, dx: 0, dy: 0, active: false }));
+      onDecide(outcome, card);
+      return;
+    }
     setLeaving(outcome);
     setTimeout(() => {
       setLeaving(null);
@@ -113,7 +118,7 @@ export default function CleanupDeck({ deck, startCount, stats, removalQueued, on
       if (!s?.captured) return;
       draggedRef.current = true;
       const width = cardRef.current?.offsetWidth || 340;
-      const outcome = swipeOutcome(e.clientX - s.x, s.v, width);
+      const outcome = swipeOutcome(e.clientX - s.x, releaseVelocity(s.v, e.timeStamp - s.lastT), width);
       if (outcome) decide(outcome);
       else setDrag((d) => ({ ...d, dx: 0, dy: 0, active: false }));
     },

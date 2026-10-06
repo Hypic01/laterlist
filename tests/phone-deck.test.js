@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ROWS, DURATIONS } from "../web/src/rows.js";
 import { CATEGORIES } from "../web/src/components/VideoCard.jsx";
 import {
-  applyOverlay, buildDeck, findVideo, formatTotal, pruneOverlay, sessionStats, swipeOutcome, totalSeconds,
+  applyOverlay, buildDeck, findVideo, formatTotal, pruneOverlay, releaseVelocity, revertEffect, sessionStats,
+  swipeOutcome, totalSeconds,
 } from "../web/src/phone/deck.js";
 import { REMOVAL_NOTE, SYNC_NOTE } from "../web/src/phone/copy.js";
 
@@ -56,6 +57,17 @@ describe("overlay", () => {
     expect(pruneOverlay(fresh, overlay)).toEqual({});
   });
 
+  it("undo puts back the earlier action, and never clobbers a newer one", () => {
+    const moved = { category: "music", kept: false };
+    const hidden = { hide: true };
+    // move, then remove, then undo the remove: the move still shows
+    expect(revertEffect({ a: hidden }, "a", hidden, moved)).toEqual({ a: moved });
+    // undo with nothing before it clears the entry
+    expect(revertEffect({ a: hidden }, "a", hidden, undefined)).toEqual({});
+    // a newer action owns the entry now: leave it alone
+    expect(revertEffect({ a: hidden }, "a", moved, undefined)).toEqual({ a: hidden });
+  });
+
   it("finds a video in any row", () => {
     expect(findVideo(board(), "d").title).toBe("Title d");
     expect(findVideo(board(), "zzz")).toBeNull();
@@ -79,6 +91,13 @@ describe("swipeOutcome", () => {
     expect(swipeOutcome(60, 0.8, 340)).toBe("keep");
     expect(swipeOutcome(-60, -0.1, 340)).toBeNull();
     expect(swipeOutcome(10, 2, 340)).toBeNull();
+  });
+});
+
+describe("releaseVelocity", () => {
+  it("drops a stale flick when the finger paused before lifting", () => {
+    expect(releaseVelocity(-0.9, 16)).toBe(-0.9);
+    expect(releaseVelocity(-0.9, 300)).toBe(0);
   });
 });
 

@@ -51,6 +51,16 @@ export function pruneOverlay(board, overlay) {
   return next;
 }
 
+// Undo or a failed save: put back what the video showed before this action,
+// unless a newer action on the same video has replaced it since.
+export function revertEffect(overlay, id, effect, previous) {
+  if (overlay[id] !== effect) return overlay;
+  const next = { ...overlay };
+  if (previous) next[id] = previous;
+  else delete next[id];
+  return next;
+}
+
 export function findVideo(board, id) {
   for (const k of ROW_KEYS) {
     const hit = (board?.[k] ?? []).find((v) => v.id === id);
@@ -78,6 +88,12 @@ export function swipeOutcome(dx, velocity, width) {
   if (dx <= -width * 0.35 || velocity <= -0.5) return "remove";
   if (dx >= width * 0.35 || velocity >= 0.5) return "keep";
   return null;
+}
+
+// A finger that stopped before lifting is not a flick, however fast it moved
+// earlier in the drag.
+export function releaseVelocity(velocity, msSinceLastMove) {
+  return msSinceLastMove > 80 ? 0 : velocity;
 }
 
 export function sessionStats(log, undone) {

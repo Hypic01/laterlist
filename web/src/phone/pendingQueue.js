@@ -37,6 +37,7 @@ export async function postRequest({ url, body }, token, { keepalive = false } = 
 
 export function createPendingQueue({ send = postRequest, getToken = defaultGetToken, delay = COMMIT_DELAY_MS } = {}) {
   const items = new Map(); // key -> { action, token, tokenPromise, timer }
+  const chains = new Map(); // video id -> the last send for that video
   const listeners = new Set();
   let nextKey = 1;
   const emit = (event) => listeners.forEach((fn) => fn(event));
@@ -48,8 +49,14 @@ export function createPendingQueue({ send = postRequest, getToken = defaultGetTo
     items.delete(key);
     emit({ type: "change" });
     const run = (token) => Promise.all(requestsFor(item.action).map((r) => send(r, token, { keepalive })));
-    // A keepalive flush can't wait for an async token; send what we have.
-    const sent = keepalive || item.token !== undefined ? run(item.token) : item.tokenPromise.then(run);
+    // Actions on one video reach the server in the order they were made (move
+    // to Watch, then to Music, must end in Music). The token resolves within a
+    // few microtasks, so even a pagehide flush can wait for it.
+    const id = item.action.id;
+    const sent = (chains.get(id) ?? Promise.resolve()).then(() => item.tokenPromise).then(run);
+    const settledChain = sent.catch(() => {});
+    chains.set(id, settledChain);
+    settledChain.then(() => { if (chains.get(id) === settledChain) chains.delete(id); });
     return sent.then(
       () => emit({ type: "settled", key, action: item.action, ok: true }),
       (error) => emit({ type: "settled", key, action: item.action, ok: false, error }),
