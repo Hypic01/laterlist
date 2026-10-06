@@ -32,6 +32,7 @@ describe("auth coverage", () => {
       ["post", "/api/imports"], ["get", "/api/jobs/current"], ["post", "/api/jobs/1/cancel"],
       ["post", "/api/jobs/classify-remaining"], ["get", "/api/board"], ["get", "/api/status"],
       ["get", "/api/cleanup"], ["post", "/api/videos/x/category"], ["post", "/api/videos/x/dismiss"],
+      ["post", "/api/videos/x/keep"],
       ["get", "/api/videos/x"], ["post", "/api/videos/x/transcript"],
       ["post", "/api/videos/x/transcript/fetch"], ["post", "/api/videos/x/summary"],
       ["post", "/api/videos/done"], ["get", "/api/admin/stats"], ["post", "/api/admin/kill-switch"],
@@ -165,6 +166,20 @@ describe("board & actions", () => {
     const id = vids(1)[0].id;
     await asUser(request(app).post(`/api/videos/${id}/dismiss`), "b@test.dev").expect(404);
     expect((await db.getVideo(meId, id)).status).not.toBe("dismissed");
+  });
+
+  it("keep marks a scanned video kept, only for its owner", async () => {
+    const id = vids(1)[0].id;
+    await asUser(request(app).post(`/api/videos/${id}/keep`), "b@test.dev").expect(404);
+    await asUser(request(app).post(`/api/videos/${id}/keep`)).expect(200, { ok: true });
+    const res = await asUser(request(app).get("/api/board")).expect(200);
+    expect(res.body.learn.find((v) => v.id === id).kept_at).toBeTruthy();
+    expect(res.body.learn.find((v) => v.id !== id).kept_at).toBeNull();
+  });
+
+  it("keep 404s for a video that is not on the board", async () => {
+    const unsorted = vids(3)[2].id; // imported, never sorted
+    await asUser(request(app).post(`/api/videos/${unsorted}/keep`)).expect(404);
   });
 
   it("status reports counts and pause state", async () => {

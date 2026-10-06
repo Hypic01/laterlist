@@ -200,6 +200,12 @@ export const MIGRATIONS = [
       ALTER TABLE youtube_removals ENABLE ROW LEVEL SECURITY;
     `,
   },
+  {
+    id: "009-kept",
+    sql: `
+      ALTER TABLE videos ADD COLUMN IF NOT EXISTS kept_at timestamptz;
+    `,
+  },
 ];
 
 export async function migrate(q) {

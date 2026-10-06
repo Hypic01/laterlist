@@ -7,7 +7,7 @@
 export const CATEGORIES = ["learn", "watch", "music", "entertainment", "outdated"];
 
 const LIST_COLUMNS =
-  "video_id AS id, title, channel, duration_seconds, playlist_position, published_text, category, reasoning, confidence, topics, status, manual_override, override_from";
+  "video_id AS id, title, channel, duration_seconds, playlist_position, published_text, category, reasoning, confidence, topics, status, manual_override, override_from, kept_at";
 
 export function createDb(q) {
   return {
@@ -379,6 +379,18 @@ export function createDb(q) {
     async dismiss(userId, videoId) {
       const { rows } = await q.query(
         "UPDATE videos SET status = 'dismissed', override_at = clock_timestamp(), override_seq = nextval('override_seq') WHERE user_id = $1 AND video_id = $2 RETURNING video_id",
+        [userId, videoId]
+      );
+      return rows.length > 0;
+    },
+
+    // Swiping right in the phone's Clean up: the video stays on the board but
+    // stops coming back in Clean up.
+    async keep(userId, videoId) {
+      const { rows } = await q.query(
+        `UPDATE videos SET kept_at = now()
+         WHERE user_id = $1 AND video_id = $2 AND status = 'scanned'
+         RETURNING video_id`,
         [userId, videoId]
       );
       return rows.length > 0;
