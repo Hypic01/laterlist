@@ -417,6 +417,12 @@ export function createApp({
     res.json({ ok: true });
   });
 
+  app.post("/api/videos/:id/keep", auth.required, async (req, res) => {
+    const ok = await db.keep(req.user.id, req.params.id);
+    if (!ok) return res.status(404).json({ error: "unknown video" });
+    res.json({ ok: true });
+  });
+
   app.post("/api/videos/done", auth.required, async (req, res) => {
     const { ids } = req.body || {};
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: "ids required" });

@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import * as api from "./api.js";
 import { SORTS, parseTopics, timeAgo, absoluteTime, isFirstRun, shouldAutoConnect } from "./lib.js";
+import { ROWS, DURATIONS } from "./rows.js";
+import { useIsPhone } from "./phone/useIsPhone.js";
 import { hasSession, signInWithGoogle, signInDev, isDevAuth, onAuthChange } from "./auth.js";
 import Row from "./components/Row.jsx";
 import CategoryView from "./components/CategoryView.jsx";
@@ -23,31 +25,12 @@ import {
   WLL_SYNC_PROGRESS,
 } from "./extension.js";
 import {
-  LearnIcon, EyeIcon, MusicIcon, GamepadIcon, ArchiveIcon, BrandMark,
-  SettingsIcon, UploadIcon, GoogleIcon, SyncIcon,
+  BrandMark, SettingsIcon, UploadIcon, GoogleIcon, SyncIcon,
 } from "./components/icons.jsx";
 
-const ROWS = [
-  { key: "learn", label: "Worth learning from", tint: "var(--cat-learn)", icon: LearnIcon,
-    empty: "No lessons pending." },
-  { key: "watch", label: "Worth watching", tint: "var(--cat-watch)", icon: EyeIcon,
-    empty: "Your eyes are off the hook." },
-  { key: "music", label: "Music", tint: "var(--cat-music)", icon: MusicIcon,
-    empty: "All quiet in here." },
-  { key: "entertainment", label: "Just for fun", tint: "var(--cat-entertainment)", icon: GamepadIcon,
-    empty: "No fun pending." },
-  { key: "outdated", label: "Outdated", tint: "var(--cat-outdated)", icon: ArchiveIcon,
-    empty: "Nothing has aged out yet." },
-];
-
-const DURATIONS = [
-  { key: "xs", label: "< 5 min", test: (d) => d != null && d < 300 },
-  { key: "md", label: "5–20 min", test: (d) => d != null && d >= 300 && d < 1200 },
-  { key: "lg", label: "20–60 min", test: (d) => d != null && d >= 1200 && d < 3600 },
-  { key: "xl", label: "1 hr +", test: (d) => d != null && d >= 3600 },
-];
-
 const ACTIVE_STATES = new Set(["queued", "running", "awaiting_batch"]);
+// Only phones download the phone layout (and vaul with it).
+const PhoneApp = lazy(() => import("./phone/PhoneApp.jsx"));
 
 function AuthGate({ autoSignIn = false }) {
   const [email, setEmail] = useState("");
@@ -121,6 +104,7 @@ export default function App() {
   const doneNoticeRef = useRef(null);
   const activeSeenRef = useRef(new Set());
   const meEmail = me?.email || "";
+  const isPhone = useIsPhone();
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -128,7 +112,9 @@ export default function App() {
     toastRef.current = setTimeout(() => setToast(null), 4600);
   }, []);
 
+  const reloadGenRef = useRef(0);
   const reload = useCallback(async () => {
+    const gen = ++reloadGenRef.current;
     // Job first, then the board. The job fetch piggybacks the serverless
     // worker tick, which can sort a small backlog within this very request —
     // fetching in parallel let the board land before the tick finished, so
@@ -136,6 +122,9 @@ export default function App() {
     const j = await api.getCurrentJob();
     if (j.job && ACTIVE_STATES.has(j.job.state)) activeSeenRef.current.add(j.job.id);
     const [m, b] = await Promise.all([api.getMe(), api.getBoard()]);
+    // A slower, older reload must not overwrite a newer one (it would bring
+    // back a video the newer board already shows as removed).
+    if (gen !== reloadGenRef.current) return { m, b, j: j.job };
     setMe(m);
     setBoard(b);
     setJob(j.job);
@@ -501,6 +490,14 @@ export default function App() {
   if (authed === null) return <div className="loading">loading…</div>;
   if (!authed) return <AuthGate autoSignIn={signinRequested} />;
   if (!me || !board) return <div className="loading">loading…</div>;
+  // Phones get their own layout (web/src/phone/). Everything below is desktop.
+  if (isPhone) {
+    return (
+      <Suspense fallback={<div className="loading">loading…</div>}>
+        <PhoneApp me={me} board={board} job={job} reload={reload} onSummaryUsed={onSummaryUsed} />
+      </Suspense>
+    );
+  }
 
   const totalVideos = Object.values(me.counts).reduce((a, b) => a + b, 0);
   const waitingCount = ACTIVE_STATES.has(job?.state) ? 0 : me.counts.unscanned;

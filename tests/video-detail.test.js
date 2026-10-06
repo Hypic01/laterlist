@@ -37,6 +37,16 @@ describe("VideoDetail M4 actions", () => {
     expect(html).not.toContain("Your YouTube Watch Later stays unchanged.");
   });
 
+  it("lets the phone replace the YouTube note", () => {
+    const html = renderToStaticMarkup(React.createElement(VideoDetail, {
+      ...baseProps,
+      youtubeNote: "Phone note.",
+      me: { plan: "pro", isAdmin: false, summariesUsed: 0, summaryQuota: 100 },
+    }));
+    expect(html).toContain("Phone note.");
+    expect(html).not.toContain("Your YouTube Watch Later stays unchanged.");
+  });
+
   it("shows click-to-play, local watched state, and the external fallback", () => {
     const html = renderToStaticMarkup(React.createElement(VideoDetail, {
       ...baseProps,
