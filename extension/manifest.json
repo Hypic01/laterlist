@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Laterlist for YouTube",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Sorts your own YouTube Watch Later into tidy shelves with AI, and clears what you finish from Watch Later.",
   "permissions": ["scripting", "storage", "alarms"],
   "host_permissions": ["https://www.youtube.com/*"],
@@ -9,7 +9,8 @@
   "action": { "default_popup": "popup.html" },
   "externally_connectable": {
     "matches": [
-      "https://watch-later-web.vercel.app/*"
+      "https://watch-later-web.vercel.app/*",
+      "https://laterlist-app.vercel.app/*"
     ]
   },
   "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" },
