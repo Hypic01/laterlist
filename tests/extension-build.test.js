@@ -44,10 +44,10 @@ describe("extension store build", () => {
     if (workspace) await rm(workspace, { recursive: true, force: true });
   });
 
-  it("ships the production manifest with only the production origin", async () => {
+  it("ships the production manifest with only the production origins", async () => {
     const manifest = JSON.parse(await readFile(path.join(extensionDir, "dist", "manifest.json"), "utf8"));
 
-    expect(manifest.version).toBe("1.3.0");
+    expect(manifest.version).toBe("1.3.1");
     expect(manifest.description).toBe(
       "Sorts your own YouTube Watch Later into tidy shelves with AI, and clears what you finish from Watch Later.",
     );
@@ -55,6 +55,7 @@ describe("extension store build", () => {
     expect(manifest.host_permissions).toEqual(["https://www.youtube.com/*"]);
     expect(manifest.externally_connectable.matches).toEqual([
       "https://watch-later-web.vercel.app/*",
+      "https://laterlist-app.vercel.app/*",
     ]);
   });
 
@@ -97,6 +98,7 @@ describe("extension store build", () => {
     expect(entries).not.toContain("dev-key.pem");
     expect(zippedManifest.externally_connectable.matches).toEqual([
       "https://watch-later-web.vercel.app/*",
+      "https://laterlist-app.vercel.app/*",
     ]);
     expect(JSON.stringify(zippedManifest)).not.toContain("localhost");
     // The Web Store rejects manifests containing "key" (it assigns the public
