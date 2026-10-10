@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { timeAgo, absoluteTime, isFirstRun, shouldAutoConnect } from "../web/src/lib.js";
+import { timeAgo, absoluteTime, isFirstRun, shouldAutoConnect, shortAge } from "../web/src/lib.js";
 
 const now = Date.parse("2026-07-21T12:00:00Z");
 const SEC = 1000, MIN = 60 * SEC, HOUR = 60 * MIN, DAY = 24 * HOUR;
@@ -71,5 +71,28 @@ describe("shouldAutoConnect", () => {
     ["already tried this session", { attempted: true }],
   ])("stays manual when %s", (_label, patch) => {
     expect(shouldAutoConnect({ ...ready, ...patch })).toBe(false);
+  });
+});
+
+describe("shortAge", () => {
+  it("pulls the age out of YouTube's views + age line", () => {
+    expect(shortAge("1.2M views • 3 years ago")).toBe("3 yr");
+    expect(shortAge("845K views • 8 months ago")).toBe("8 mo");
+    expect(shortAge("12 views • 1 month ago")).toBe("1 mo");
+  });
+  it("covers weeks, days and hours", () => {
+    expect(shortAge("2 weeks ago")).toBe("2 wk");
+    expect(shortAge("Streamed 5 days ago")).toBe("5 d");
+    expect(shortAge("3 hours ago")).toBe("3 h");
+  });
+  it("reads Korean YouTube too", () => {
+    expect(shortAge("조회수 1.2만회 • 3년 전")).toBe("3 yr");
+    expect(shortAge("조회수 300회 • 8개월 전")).toBe("8 mo");
+    expect(shortAge("2주 전")).toBe("2 wk");
+  });
+  it("returns null when there is no age to show", () => {
+    expect(shortAge(null)).toBe(null);
+    expect(shortAge("")).toBe(null);
+    expect(shortAge("1.2M views")).toBe(null);
   });
 });

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { formatDuration } from "../lib.js";
+import { formatDuration, shortAge } from "../lib.js";
 import {
   CheckIcon,
   ExternalIcon,
@@ -28,6 +28,7 @@ export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDeta
   // A private or deleted video has no content to summarize, so TL;DR stays off its card.
   const unavailable = /^\[(private|deleted) video\]$/i.test(video.title);
   const kebabRef = useRef(null);
+  const age = shortAge(video.published_text);
   const thumb = `https://i.ytimg.com/vi/${video.id}/${fallback ? "hqdefault" : "hq720"}.jpg`;
   const ytUrl = `https://www.youtube.com/watch?v=${video.id}`;
   return (
@@ -54,7 +55,12 @@ export default function VideoCard({ video, onMove, onDismiss, onDone, onOpenDeta
         <h3 className="card__title" title={video.title}>
           <button onClick={() => onOpenDetail?.(video)}>{video.title}</button>
         </h3>
-        <div className="card__channel">{video.channel}</div>
+        {/* Receipt layout: who on the left edge, how old on the right, so
+            "is this stale?" never needs the detail view. */}
+        <div className="card__meta">
+          <span className="card__channel">{video.channel}</span>
+          {age && <span className="card__age" title={video.published_text}>{age}</span>}
+        </div>
         {video.reasoning && (
           <div className="card__reasoning" title={video.reasoning}>
             <SparklesIcon size={13} />

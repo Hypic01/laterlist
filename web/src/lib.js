@@ -41,6 +41,29 @@ export function timeAgo(iso, now = Date.now()) {
 }
 
 // The exact stamp behind the relative label, surfaced on hover.
+// A card answers "is this outdated?" at a glance, so the upload age sits on the
+// channel line in short form. YouTube hands us "1.2M views • 3 years ago" (or
+// the Korean "조회수 1.2만회 • 3년 전"); keep only the age. null = nothing to show.
+const AGE_UNITS = [
+  [/(\d+)\s*(?:years?|년)/i, "yr"],
+  [/(\d+)\s*(?:months?|개월)/i, "mo"],
+  [/(\d+)\s*(?:weeks?|주)/i, "wk"],
+  [/(\d+)\s*(?:days?|일)/i, "d"],
+  [/(\d+)\s*(?:hours?|시간)/i, "h"],
+  [/(\d+)\s*(?:minutes?|분)/i, "min"],
+];
+
+export function shortAge(text) {
+  if (!text) return null;
+  const age = String(text).match(/(\d+\s*\S+\s+ago|\d+\s*\S+\s*전)\s*$/i);
+  if (!age) return null;
+  for (const [re, unit] of AGE_UNITS) {
+    const m = age[1].match(re);
+    if (m) return `${m[1]} ${unit}`;
+  }
+  return null;
+}
+
 export function absoluteTime(iso) {
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return "";
