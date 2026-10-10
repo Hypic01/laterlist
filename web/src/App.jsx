@@ -529,6 +529,9 @@ export default function App() {
     return [...out].sort(SORTS[sort].fn);
   };
 
+  const boardRows = board ? ROWS.map((r) => ({ ...r, videos: matches(board[r.key] ?? []) })) : [];
+  const emptyRows = boardRows.filter((r) => !r.videos.length);
+
   const withQuery = (list) => {
     if (!query.trim()) return list;
     const q = query.toLowerCase();
@@ -707,14 +710,24 @@ export default function App() {
         ) : (
           <>
             {chipsBar}
-            {ROWS.map((r) => (
+            {boardRows.filter((r) => r.videos.length).map((r) => (
               <Row key={r.key} label={r.label} tint={r.tint} icon={r.icon}
-                videos={matches(board[r.key])} emptyLine={r.empty}
+                videos={r.videos} emptyLine={r.empty}
                 onMove={move} onDismiss={dismiss} onDone={done}
                 onOpenDetail={openDetail}
                 onTldr={cardTldr}
                 onOpen={() => setView(r.key)} />
             ))}
+            {emptyRows.length > 0 && (
+              <p className="row-empties">
+                {emptyRows.map((r) => (
+                  <span key={r.key} className="row-empties__name">
+                    <span className="row-empties__dot" style={{ background: r.tint }} />{r.label}
+                  </span>
+                ))}
+                <span>{duration || topic ? "no matches for this filter" : "nothing waiting"}</span>
+              </p>
+            )}
             {job?.state === "failed" && job.error ? (
               <div className="jobfail" role="alert">
                 <b>The last sort didn't run</b>
