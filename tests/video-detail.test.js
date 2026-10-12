@@ -31,7 +31,6 @@ describe("VideoDetail M4 actions", () => {
     const html = renderToStaticMarkup(React.createElement(VideoDetail, {
       ...baseProps,
       removesFromYoutube: true,
-      me: { plan: "free", isAdmin: false, summariesUsed: 2, summaryQuota: 100 },
     }));
     expect(html).toContain("Mark watched hides it here and takes it off your YouTube Watch Later.");
     expect(html).not.toContain("Your YouTube Watch Later stays unchanged.");
@@ -41,7 +40,6 @@ describe("VideoDetail M4 actions", () => {
     const html = renderToStaticMarkup(React.createElement(VideoDetail, {
       ...baseProps,
       youtubeNote: "Phone note.",
-      me: { plan: "pro", isAdmin: false, summariesUsed: 0, summaryQuota: 100 },
     }));
     expect(html).toContain("Phone note.");
     expect(html).not.toContain("Your YouTube Watch Later stays unchanged.");
@@ -50,7 +48,6 @@ describe("VideoDetail M4 actions", () => {
   it("shows click-to-play, local watched state, and the external fallback", () => {
     const html = renderToStaticMarkup(React.createElement(VideoDetail, {
       ...baseProps,
-      me: { plan: "free", isAdmin: false, summariesUsed: 2, summaryQuota: 100 },
     }));
 
     expect(html).toContain('aria-label="Play &quot;A useful video&quot; here"');
@@ -59,9 +56,8 @@ describe("VideoDetail M4 actions", () => {
     expect(html).toContain("Mark watched");
     expect(html).toContain("Your YouTube Watch Later stays unchanged.");
     expect(html).not.toContain("Learn</button>");
-    expect(html).toContain('aria-label="TL;DR. 2 of 100 TL;DRs used this month"');
-    expect(html).toContain('class="detail__quota"');
-    expect(html).toContain("2/100");
+    expect(html).toContain("TL;DR</button>");
+    expect(html).not.toContain("detail__quota");
     expect(html).toContain("Open on YouTube</a>");
     expect(html).toContain("Not interested</button>");
     expect(html).not.toContain(">Dismiss</button>");
@@ -71,7 +67,6 @@ describe("VideoDetail M4 actions", () => {
     const html = renderToStaticMarkup(React.createElement(VideoDetail, {
       ...baseProps,
       intent: "play",
-      me: { plan: "free", isAdmin: false, summariesUsed: 2, summaryQuota: 100 },
     }));
 
     expect(html.match(/<iframe/g)).toHaveLength(1);
@@ -83,14 +78,14 @@ describe("VideoDetail M4 actions", () => {
     expect(html).toContain('allowfullscreen=""');
   });
 
-  it("does not show a free meter for Pro", () => {
+  it("does not show a quota or upgrade surface", () => {
     const html = renderToStaticMarkup(React.createElement(VideoDetail, {
       ...baseProps,
-      me: { plan: "pro", isAdmin: false, summariesUsed: 12, summaryQuota: 100 },
     }));
 
     expect(html).not.toContain("Learn</button>");
     expect(html).toContain("TL;DR</button>");
     expect(html).not.toContain("detail__quota");
+    expect(html).not.toContain("Upgrade to Pro");
   });
 });

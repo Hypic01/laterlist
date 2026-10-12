@@ -3,13 +3,14 @@ import * as api from "./api.js";
 import { SORTS, parseTopics, timeAgo, absoluteTime, isFirstRun, shouldAutoConnect } from "./lib.js";
 import { ROWS, DURATIONS } from "./rows.js";
 import { useIsPhone } from "./phone/useIsPhone.js";
-import { hasSession, signInWithGoogle, signInDev, isDevAuth, onAuthChange } from "./auth.js";
+import { hasSession, signInWithGoogle, signInDev, isDevAuth, onAuthChange, signOut } from "./auth.js";
 import Row from "./components/Row.jsx";
 import CategoryView from "./components/CategoryView.jsx";
 import Onboarding from "./components/Onboarding.jsx";
 import ImportPanel from "./components/ImportPanel.jsx";
 import JobProgress from "./components/JobProgress.jsx";
-import UpgradeBand from "./components/UpgradeBand.jsx";
+import PrivateScreen from "./components/PrivateScreen.jsx";
+import WaitingBand from "./components/WaitingBand.jsx";
 import Settings from "./components/Settings.jsx";
 import VideoDetail from "./components/VideoDetail.jsx";
 import SetupScreen from "./components/SetupScreen.jsx";
@@ -43,7 +44,7 @@ function AuthGate({ autoSignIn = false }) {
       <div className="authgate__card">
         <span className="brand__mark" style={{ width: 48, height: 48 }}><BrandMark size={24} /></span>
         <h1>Laterlist</h1>
-        <p>Your Watch Later is a graveyard. Sign in and Laterlist sorts it. Your newest 1,000 videos are free.</p>
+        <p>Sign in to your private Laterlist.</p>
         {isDevAuth ? (
           <form className="authgate__dev" onSubmit={(e) => { e.preventDefault(); if (email.includes("@")) { signInDev(email); location.reload(); } }}>
             <input type="email" placeholder="dev mode: any email" value={email}
@@ -67,6 +68,7 @@ function AuthGate({ autoSignIn = false }) {
 export default function App() {
   const [authed, setAuthed] = useState(null);
   const [me, setMe] = useState(null);
+  const [privateAccess, setPrivateAccess] = useState(false);
   const [board, setBoard] = useState(null);
   const [job, setJob] = useState(null);
   const [view, setView] = useState("board");
@@ -154,7 +156,7 @@ export default function App() {
     const capped = Number(result.capped) || 0;
     const bits = [`${added.toLocaleString()} new videos imported`];
     if (willClassify) bits.push(`sorting ${willClassify.toLocaleString()} now`);
-    if (capped) bits.push(`${capped.toLocaleString()} older videos skipped — you're at your plan's limit`);
+    if (capped) bits.push(`${capped.toLocaleString()} older videos skipped, your library is full`);
     const availability = availabilitySummary(result);
     if (availability) bits.push(availability);
     if (result.jobId && willClassify > 0) {
@@ -165,14 +167,6 @@ export default function App() {
     await reload();
   }, [adoptJob, reload, showToast]);
 
-  const onSummaryUsed = useCallback((used, quota) => {
-    setMe((current) => current ? {
-      ...current,
-      summariesUsed: Number.isFinite(Number(used)) ? Number(used) : current.summariesUsed,
-      summaryQuota: Number.isFinite(Number(quota)) ? Number(quota) : current.summaryQuota,
-    } : current);
-  }, []);
-
   // session
   useEffect(() => {
     hasSession().then(setAuthed);
@@ -182,24 +176,11 @@ export default function App() {
   // first load
   useEffect(() => {
     if (!authed) return;
-    reload().catch((e) => showToast(e.message));
+    reload().catch((e) => {
+      if (e.status === 403 && e.body?.error === "This Laterlist is private.") setPrivateAccess(true);
+      else showToast(e.message);
+    });
   }, [authed, reload, showToast]);
-
-  // returning from Stripe checkout: wait for the webhook to land
-  useEffect(() => {
-    if (!authed || !location.search.includes("upgraded=1")) return;
-    history.replaceState(null, "", "/app");
-    let tries = 0;
-    const t = setInterval(async () => {
-      const m = await api.getMe().catch(() => null);
-      if (m?.plan === "pro") {
-        clearInterval(t);
-        setMe(m);
-        showToast("Welcome to Pro. Sort the rest whenever you're ready ✦");
-      } else if (++tries > 30) clearInterval(t);
-    }, 2000);
-    return () => clearInterval(t);
-  }, [authed, showToast]);
 
   // poll the active job every 3s; on completion, refresh everything once
   useEffect(() => {
@@ -489,20 +470,19 @@ export default function App() {
 
   if (authed === null) return <div className="loading">loading…</div>;
   if (!authed) return <AuthGate autoSignIn={signinRequested} />;
+  if (privateAccess) return <PrivateScreen onSignOut={signOut} />;
   if (!me || !board) return <div className="loading">loading…</div>;
   // Phones get their own layout (web/src/phone/). Everything below is desktop.
   if (isPhone) {
     return (
       <Suspense fallback={<div className="loading">loading…</div>}>
-        <PhoneApp me={me} board={board} job={job} reload={reload} onSummaryUsed={onSummaryUsed} />
+        <PhoneApp me={me} board={board} job={job} reload={reload} />
       </Suspense>
     );
   }
 
   const totalVideos = Object.values(me.counts).reduce((a, b) => a + b, 0);
   const waitingCount = ACTIVE_STATES.has(job?.state) ? 0 : me.counts.unscanned;
-  // The importer caps storage AT the plan cap, so >= fires exactly when full.
-  const atCap = me.plan !== "pro" && totalVideos >= me.videoCap;
   const connectedEmail = extensionState.status?.email?.trim().toLowerCase() || "";
   const accountEmail = me.email.trim().toLowerCase();
   const extensionMismatch = Boolean(connectedEmail && connectedEmail !== accountEmail);
@@ -662,7 +642,7 @@ export default function App() {
             fetchTranscriptFromExtension={extensionClient.fetchTranscript}
             onBack={() => { setFocus(null); setFocusIntent(null); }} onMove={move}
             onDismiss={dismiss} onDone={done}
-            onToast={showToast} onSummaryUsed={onSummaryUsed} />
+            onToast={showToast} />
         ) : view === "settings" ? (
           <Settings me={me} onBack={() => setView("board")} onToast={showToast}
             onRetakeQuiz={() => { api.saveTaste({ interests: [], note: "" }); setView("quiz"); }}
@@ -701,7 +681,6 @@ export default function App() {
             <p>
               Import your Watch Later and Laterlist sorts every video into five rows:
               what's worth learning from, worth watching, music, fun, and what's gone stale.
-              Your newest {Number(me.videoCap).toLocaleString()} videos sort free.
             </p>
             <button className="btn btn--primary" onClick={() => setView("import")}>
               <UploadIcon size={15} /> Import your Watch Later
@@ -734,13 +713,11 @@ export default function App() {
                 <p>{job.error}</p>
               </div>
             ) : null}
-            {(waitingCount > 0 || atCap) && (
-              <UpgradeBand me={me} waitingCount={waitingCount} atCap={atCap} onToast={showToast}
-                onJobStarted={(r) => adoptJob({
-                  id: r.jobId, state: "queued", mode: null, tier: null,
-                  total: Number(r.willClassify) || 0, processed: 0, failed: 0, error: null,
-                })} />
-            )}
+            <WaitingBand waitingCount={waitingCount} onToast={showToast}
+              onJobStarted={(r) => adoptJob({
+                id: r.jobId, state: "queued", mode: null, tier: null,
+                total: Number(r.willClassify) || 0, processed: 0, failed: 0, error: null,
+              })} />
           </>
         )}
       </main>

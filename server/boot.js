@@ -15,7 +15,6 @@ import { createJevClassifier, createFakeJevFetch } from "./jev.js";
 import { createBackground } from "./background.js";
 import { createImporter } from "./importer.js";
 import { createWorker } from "./worker.js";
-import { createBilling } from "./billing.js";
 import { createApp } from "./app.js";
 import { createMentor } from "./mentor.js";
 import { createTranscriptFetcher } from "./transcripts.js";
@@ -64,7 +63,13 @@ export async function buildApp(env = process.env) {
   } else {
     throw new Error("Set SUPABASE_URL (+ optionally SUPABASE_JWT_SECRET) or DEV_FAKE_AUTH=1");
   }
-  const auth = createAuth({ verify, db, adminEmails: config.adminEmails });
+  const auth = createAuth({
+    verify,
+    db,
+    adminEmails: config.adminEmails,
+    ownerEmails: config.ownerEmails,
+    lockWhenEmpty: config.serverless && !config.devFakeAuth,
+  });
 
   // ---- llm (Haiku: summaries, and sorting when CLASSIFIER=haiku) ----
   let llm = null;
@@ -105,13 +110,6 @@ export async function buildApp(env = process.env) {
     ? createBackground({ worker, db, config, log: (m) => console.log(`[background] ${m}`) })
     : null;
   const transcripts = createTranscriptFetcher();
-  let billing = null;
-  if (config.polarAccessToken && config.polarWebhookSecret
-      && config.polarProductMonthlyId && config.polarProductAnnualId) {
-    billing = createBilling({ db, config });
-  } else {
-    console.log("[billing] Polar env not set — upgrade flow disabled (free tier still works)");
-  }
 
   const app = createApp({
     db,
@@ -119,7 +117,6 @@ export async function buildApp(env = process.env) {
     importer,
     worker,
     background,
-    billing,
     mentor,
     transcripts,
     config,

@@ -501,7 +501,7 @@ button { font-family: inherit; cursor: pointer; }
 .card__kebab { padding: 5px 7px !important; }
 
 /* ---------- Floating menu (FloatingMenu.jsx, rendered into <body>) ---------- */
-/* Above the sticky topbar (40), below the toast (60) and the upgrade dialog (100). */
+/* Above the sticky topbar (40), below the toast (60). */
 .menu-backdrop { position: fixed; inset: 0; z-index: 50; }
 .popmenu {
   position: fixed; z-index: 51; min-width: 200px; overflow-y: auto;
@@ -722,25 +722,6 @@ button { font-family: inherit; cursor: pointer; }
 .extension-card--warning .extension-card__icon { color: var(--color-warning-text); }
 .settings__block .extension-card { margin-top: 0; }
 
-/* ---------- Upgrade band ---------- */
-.upgrade {
-  margin-top: var(--space-6); position: relative; overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)), var(--color-surface));
-  border-radius: var(--radius-lg); padding: var(--space-5) var(--space-6);
-  display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap;
-}
-.upgrade__icon {
-  width: 44px; height: 44px; border-radius: var(--radius-md); flex: 0 0 auto;
-  display: grid; place-items: center; color: #fff;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-}
-.upgrade__text { flex: 1; min-width: 240px; }
-.upgrade__text b { font-family: var(--font-display); font-size: 19px; font-weight: 500; letter-spacing: .004em; display: block; }
-.upgrade__text p { color: var(--color-muted); font-size: 13.5px; margin-top: 4px; }
-.upgrade .btn--primary { flex: 0 0 auto; }
-
 .jobfail {
   margin-top: var(--space-6);
   border: 1px solid color-mix(in srgb, var(--color-destructive) 35%, var(--color-border));
@@ -889,12 +870,6 @@ button { font-family: inherit; cursor: pointer; }
 }
 .detail__actions > .btn, .detail__actions > a.btn, .detail__move { height: 38px; }
 .detail__actions a.btn { text-decoration: none; }
-.detail__quota {
-  display: inline-flex; align-items: center; min-height: 18px; padding: 1px 6px;
-  color: var(--color-muted); background: var(--color-surface);
-  border: 1px solid var(--color-border); border-radius: var(--radius-pill);
-  font-family: var(--font-mono); font-size: 9.5px; font-variant-numeric: tabular-nums;
-}
 .detail__move { background-color: var(--color-surface-raised); }
 .detail__note { margin-top: var(--space-3); color: var(--color-muted); font-size: 12.5px; }
 @media (hover: hover) {
@@ -927,47 +902,6 @@ button { font-family: inherit; cursor: pointer; }
 .summary__points li::marker { color: var(--color-primary); }
 .summary__verdict { background: color-mix(in srgb, var(--cat-watch) 8%, var(--color-surface)); }
 .summary__verdict .summary__label { color: var(--color-accent-soft); }
-.summary__upgrade {
-  display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
-  margin-top: var(--space-5); padding: var(--space-4) var(--space-5);
-  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
-  border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)), var(--color-surface));
-}
-.summary__upgrade > div:not(.upgrade__icon) { flex: 1; min-width: 220px; }
-.summary__upgrade b { font-family: var(--font-display); font-size: 17px; font-weight: 500; }
-.summary__upgrade p { color: var(--color-muted); font-size: 13px; margin-top: 3px; }
-
-/* ---------- Upgrade modal ---------- */
-.modal {
-  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
-  padding: var(--space-5); background: rgba(9, 11, 16, .74); backdrop-filter: blur(7px);
-  animation: rise .2s var(--ease) backwards;
-}
-.modal__card {
-  position: relative; width: min(440px, 100%); display: flex; flex-direction: column;
-  align-items: center; gap: var(--space-4); text-align: center;
-  padding: var(--space-6); border: 1px solid color-mix(in srgb, var(--color-primary) 38%, var(--color-border));
-  border-radius: calc(var(--radius-lg) + 4px);
-  background:
-    radial-gradient(360px 200px at 50% -20%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
-    var(--color-surface);
-  box-shadow: 0 28px 80px rgba(0, 0, 0, .62);
-}
-.modal__mark {
-  width: 54px; height: 54px; display: grid; place-items: center; border-radius: var(--radius-lg);
-  color: var(--primary-foreground); background: var(--primary);
-  box-shadow: 0 10px 34px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-.modal__card h2 { font-family: var(--font-display); font-size: 26px; font-weight: 500; letter-spacing: .004em; }
-.modal__card p { max-width: 34ch; color: var(--color-muted); }
-.modal__close {
-  position: absolute; top: 12px; right: 12px; width: 34px; height: 34px;
-  display: grid; place-items: center; border: 1px solid var(--color-border);
-  border-radius: 50%; color: var(--color-muted); background: var(--color-surface-raised);
-}
-.modal__close:hover { color: var(--color-foreground); border-color: var(--color-border-strong); }
-
 @media (max-width: 680px) {
   .detail__title { font-size: 22px; }
   .detail__player, .detail__thumb { min-height: 200px; }
@@ -1002,3 +936,22 @@ button { font-family: inherit; cursor: pointer; }
   }
   [aria-expanded="true"][data-tip]::after { display: none; }
 }
+
+/* ---------- Waiting band (videos left to sort) ---------- */
+.waiting {
+  margin-top: var(--space-6); position: relative; overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)), var(--color-surface));
+  border-radius: var(--radius-lg); padding: var(--space-5) var(--space-6);
+  display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap;
+}
+.waiting__icon {
+  width: 44px; height: 44px; border-radius: var(--radius-md); flex: 0 0 auto;
+  display: grid; place-items: center; color: var(--primary-foreground);
+  background: var(--color-primary);
+}
+.waiting__text { flex: 1; min-width: 240px; }
+.waiting__text b { font-family: var(--font-display); font-size: 19px; font-weight: 500; letter-spacing: .004em; display: block; }
+.waiting__text p { color: var(--color-muted); font-size: 13.5px; margin-top: 4px; }
+.waiting .btn--primary { flex: 0 0 auto; }

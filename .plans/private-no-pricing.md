@@ -45,7 +45,7 @@
 **Interfaces:**
 - Produces: `config.ownerEmails: string[]`, `config.libraryCap: number`; `createAuth({ verify, db, adminEmails, ownerEmails = [], lockWhenEmpty = false })`.
 
-- [ ] **Step 1: Write the failing tests.** Create `tests/owner-lock.test.js`:
+- [x] **Step 1: Write the failing tests.** Create `tests/owner-lock.test.js`:
 
 ```js
 import { describe, it, expect } from "vitest";
@@ -126,9 +126,9 @@ describe("config", () => {
 
 If `db.createApiToken`'s second argument uses different key names, read `server/db.js` (around line 66) and match it in the test; do not change `db.js`.
 
-- [ ] **Step 2: Run to verify failure.** `npx vitest run tests/owner-lock.test.js` → FAIL (403 expectations get 200; `ownerEmails` undefined).
+- [x] **Step 2: Run to verify failure.** `npx vitest run tests/owner-lock.test.js` → FAIL (403 expectations get 200; `ownerEmails` undefined).
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
 
 In `server/config.js`, inside the returned object next to `adminEmails`, add:
 
@@ -197,11 +197,11 @@ In `server/boot.js`, change the `createAuth` call to:
 - Delete: `server/billing.js`, `tests/billing.test.js`
 - Modify: `server/boot.js`, `server/app.js`, `server/config.js`, `package.json`, `package-lock.json`
 
-- [ ] **Step 1:** In `server/boot.js` remove the `createBilling` import, the `let billing = null` block that checks the Polar env, and the `billing` property passed to `createApp`.
-- [ ] **Step 2:** In `server/app.js` remove the `billing` parameter, the `/api/billing/webhook` mount (and the comment about mounting before `express.json`), and the `/api/billing/checkout` and `/api/billing/portal` routes. Update the file's header comment so it no longer mentions billing or freemium.
-- [ ] **Step 3:** In `server/config.js` remove the five `polar*` keys and their comment.
+- [x] **Step 1:** In `server/boot.js` remove the `createBilling` import, the `let billing = null` block that checks the Polar env, and the `billing` property passed to `createApp`.
+- [x] **Step 2:** In `server/app.js` remove the `billing` parameter, the `/api/billing/webhook` mount (and the comment about mounting before `express.json`), and the `/api/billing/checkout` and `/api/billing/portal` routes. Update the file's header comment so it no longer mentions billing or freemium.
+- [x] **Step 3:** In `server/config.js` remove the five `polar*` keys and their comment.
 - [ ] **Step 4:** Remove `@polar-sh/sdk` and `standardwebhooks` from `package.json` dependencies. Do not run `npm install` (no network). Instead edit `package-lock.json` by removing those two entries from the root `packages[""].dependencies` block and their `node_modules/@polar-sh/sdk` and `node_modules/standardwebhooks` package entries (plus any of their transitive entries that nothing else depends on, if you can determine that with certainty; if not, leave transitive entries). Claude re-runs `npm install` outside the sandbox to normalize the lockfile.
-- [ ] **Step 5:** Delete `server/billing.js` and `tests/billing.test.js`. Remove any other test cases that only exercised billing routes (grep `tests/` for `billing`), listing each in the report.
+- [x] **Step 5:** Delete `server/billing.js` and `tests/billing.test.js`. Remove any other test cases that only exercised billing routes (grep `tests/` for `billing`), listing each in the report.
 - [ ] **Step 6: Verify.** `grep -rniE "polar|billing|standardwebhooks" server tests package.json` returns nothing (except unrelated words; report any hit you keep). `npm test` green.
 - [ ] **Step 7: Commit.** `git commit -am "chore: remove billing (Laterlist is private)"` (include the deletions with `git add -A server tests package.json package-lock.json` first).
 
@@ -213,17 +213,17 @@ In `server/boot.js`, change the `createAuth` call to:
 - Modify: `server/config.js`, `server/importer.js`, `server/app.js`, any server file that branches on plan (`grep -rnE "betaPro|isPro|plan === .pro.|freeVideoCap|proVideoCap|freeSummaryQuota|betaAllowlist" server`)
 - Modify tests that asserted plan behavior: start from `grep -lnE "betaPro|plan|quota|402|videoCap|freeVideoCap|proVideoCap|BETA_" tests`
 
-- [ ] **Step 1: Write the failing tests** (add to the existing files that cover these areas, matching their setup style):
+- [x] **Step 1: Write the failing tests** (add to the existing files that cover these areas, matching their setup style):
   - Importer: a user with no plan imports 1,500 videos and all 1,500 are stored (`added` 1500, `capped` 0); with `libraryCap` set to 100 in the test config, 150 imported stores 100 and reports `capped` 50.
   - Summaries: a user who already has 150 summaries this month gets a TL;DR, never a 402.
   - `/api/me`: the response has none of `plan`, `betaPro`, `summaryQuota`, `summariesUsed`, `videoCap`, `proEndsAt`, `proInterval`, and still has `id`, `email`, `isAdmin`, `counts`, `lastImportAt`, `removeFromYoutube`, `youtubeRemovalAvailable`.
-- [ ] **Step 2: Run them** and confirm they fail for the right reason.
-- [ ] **Step 3: Implement.**
+- [x] **Step 2: Run them** and confirm they fail for the right reason.
+- [x] **Step 3: Implement.**
   - `server/config.js`: remove `betaProForAll`, `freeVideoCap`, `proVideoCap`, `freeSummaryQuota`, `betaAllowlist` and the tier comment above them.
   - `server/importer.js`: remove `isPro` and the beta allowlist check; store with `config.libraryCap`; start jobs with a single tier value (pass `"pro"` if the worker's job API still requires a tier argument, and leave a one-line comment that tiers are vestigial). Update the file's header comment.
   - `server/app.js`: in `/api/me` drop the removed fields and the `countSummariesThisMonth` call; in the summary route drop the `bypass` / quota / 402 block and any `summaryQuota` in responses.
   - Any other plan branch the grep finds: collapse to the always-allowed path.
-- [ ] **Step 4: Update existing tests** that asserted free caps, quotas, 402s, `betaPro` or plan fields: rewrite them to the new behavior or delete them if they only tested removed behavior. List every changed or deleted test in your report.
+- [x] **Step 4: Update existing tests** that asserted free caps, quotas, 402s, `betaPro` or plan fields: rewrite them to the new behavior or delete them if they only tested removed behavior. List every changed or deleted test in your report.
 - [ ] **Step 5: Verify.** `grep -rnE "betaPro|isPro|freeVideoCap|proVideoCap|freeSummaryQuota|betaAllowlist|BETA_PRO|BETA_ALLOWLIST" server tests` returns nothing. `npm test` green.
 - [ ] **Step 6: Commit.** `git commit -am "chore: one safety cap, no plans or quotas"`.
 
@@ -237,11 +237,11 @@ In `server/boot.js`, change the `createAuth` call to:
 - Create: `web/src/components/PrivateScreen.jsx`
 - Modify tests: the web tests that reference Upgrade, plan, quota or betaPro (start from `grep -lnE "Upgrade|betaPro|plan|quota|videoCap" tests`)
 
-- [ ] **Step 1: Write the failing tests** (match the existing component test style, e.g. `tests/video-detail.test.js`, `tests/settings-removal.test.js`):
+- [x] **Step 1: Write the failing tests** (match the existing component test style, e.g. `tests/video-detail.test.js`, `tests/settings-removal.test.js`):
   - Settings renders no "Plan" heading and no "Upgrade to Pro" button for a `me` without plan fields.
   - VideoDetail renders no upgrade card and no quota text.
   - `PrivateScreen` renders "This Laterlist is private." and a Sign out button that calls its `onSignOut` prop.
-- [ ] **Step 2: Implement.**
+- [x] **Step 2: Implement.**
   - Create `web/src/components/PrivateScreen.jsx`:
 
 ```jsx
@@ -261,7 +261,7 @@ export default function PrivateScreen({ onSignOut }) {
   - `VideoDetail.jsx`: remove the upgrade card, its state (`upgradeOpen`, `upgradeBusy`, `upgradeCardRef`), and any quota or 402 messaging; a failed TL;DR shows the server's error text as today.
   - `api.js`: remove `checkoutUrl` and `portalUrl`.
   - `styles.css`: remove the UpgradeBand and upgrade-card rules (only those).
-- [ ] **Step 3: Update web tests** that asserted the removed UI; list each.
+- [x] **Step 3: Update web tests** that asserted the removed UI; list each.
 - [ ] **Step 4: Verify.** `grep -rniE "upgrade|betaPro|checkoutUrl|portalUrl|summaryQuota|videoCap|me\.plan" web/src` returns nothing. `npm test` green. `npm run build:web` succeeds.
 - [ ] **Step 5: Commit.** `git commit -am "chore(web): no upgrade surfaces, private screen"` (add the new and deleted files with `git add -A web/src tests`).
 
@@ -272,7 +272,7 @@ export default function PrivateScreen({ onSignOut }) {
 **Files:**
 - Modify: `web/index.html`, `web/public/privacy.html`, `web/public/terms.html`, `README.md`, `AGENTS.md`
 
-- [ ] **Step 1: Landing.** In `web/index.html`:
+- [x] **Step 1: Landing.** In `web/index.html`:
   - Keep `<head>` (meta, fonts, theme guard script, token block, styles) as is.
   - In `<nav>`, remove the `Pricing` link. Keep the seal, wordmark, "for YouTube", theme toggle and the Sign in button.
   - Replace everything between `</nav>` and `<footer>` with:
@@ -289,8 +289,8 @@ export default function PrivateScreen({ onSignOut }) {
   - Footer: keep Privacy, Terms and Sign in; remove Feedback.
   - Scripts at the end: keep the theme toggle code. Remove the GSAP `<script src>` tag and any animation code that targets removed elements (`.frame`, `.reveal`, sections). Leave no code that queries elements that no longer exist without a null check.
   - Remove CSS rules that only styled removed sections (pricing, frame, how, privacy section) if you can identify them with certainty; leave shared rules.
-- [ ] **Step 2: Legal pages.** `privacy.html`: remove the "Payment status" bullet. `terms.html`: remove the "Pro subscription" heading and its list. Change nothing else.
-- [ ] **Step 3: Docs.** `README.md` and `AGENTS.md`: describe Laterlist as a private, single-user tool for Joon; remove freemium, Pro, beta pricing, Polar and Stripe facts; document `OWNER_EMAILS` (falls back to `ADMIN_EMAILS`; empty in production refuses everyone) and `LIBRARY_CAP` (default 25000). Keep every other fact.
+- [x] **Step 2: Legal pages.** `privacy.html`: remove the "Payment status" bullet. `terms.html`: remove the "Pro subscription" heading and its list. Change nothing else.
+- [x] **Step 3: Docs.** `README.md` and `AGENTS.md`: describe Laterlist as a private, single-user tool for Joon; remove freemium, Pro, beta pricing, Polar and Stripe facts; document `OWNER_EMAILS` (falls back to `ADMIN_EMAILS`; empty in production refuses everyone) and `LIBRARY_CAP` (default 25000). Keep every other fact.
 - [ ] **Step 4: Verify.** `grep -niE "pricing|\\$4|/month|subscription|refund|pro plan|upgrade" web/index.html web/public/terms.html web/public/privacy.html` shows nothing about paid plans (the privacy page's "YouTube subscriptions" data bullet is fine). `npm test` green; `npm run build:web` succeeds.
 - [ ] **Step 5: Commit.** `git commit -am "chore: plain sign-in landing, no pricing in legal pages or docs"`.
 
@@ -312,3 +312,20 @@ export default function PrivateScreen({ onSignOut }) {
 2. `grep -rniE "polar|upgrade to pro|betaPro|BETA_PRO|checkoutUrl|summaryQuota" server web/src` finds nothing.
 3. Owner lock tests pass (owner in, stranger 403 with no user row, stranger token 403, production-without-owners refuses all, dev open).
 4. Production: `OWNER_EMAILS` set; landing is the plain sign-in; Joon signs in fine.
+
+## Deviations
+
+- Task 1 owner-lock tests invoke the auth middleware directly instead of Supertest routes because this sandbox rejects `listen` with `EPERM`. The same owner, token, status, body, and database assertions remain.
+
+- Task 2 retains `node_modules/standardwebhooks` in `package-lock.json` because `@anthropic-ai/sdk` requires it. The direct dependency and Polar package entry were removed. Historical billing columns, migration names, and the DB persistence test remain because the plan forbids a migration or data deletion.
+
+- Task 3 route and summary test files were updated as required, but their Supertest cases cannot pass in this sandbox because `listen` is denied. The new listener-free private-limits tests and watch-picks tests pass; Claude must run the changed route tests outside the sandbox.
+
+- Task 4 targeted component tests and `build:web` pass. Full `npm test` still has only sandbox listener failures, including the Task 3 changed route files, so the strict changed-test gate remains unverified.
+
+- Git could not create the index lock under the sandbox-protected main checkout metadata, so Tasks 1 to 5 remain uncommitted. No lock bypass was attempted.
+- Task 5 followed the explicit instruction to keep the landing `<head>` and all other legal text unchanged. Those retained areas still say `1,000 videos sorted free, with 100 summaries a month` (landing metadata) and describe a free tier and paid liability (terms). Claude should resolve this conflict with the plan goal before shipping.
+- `AGENTS.md` was absent in this worktree. A minimal file was created before Task 1 per the global instructions and updated with Task 5 documentation.
+- Task 3 put the new importer, summary, and `/api/me` red/green cases in `tests/private-limits.test.js` rather than the existing Supertest files, because the required cases could not run through a listener in this sandbox. The existing plan assertions in those files were still updated.
+- Task 4 added the React import omitted from the provided `PrivateScreen.jsx` snippet so this repository's Vitest JSX transform and web build can render it.
+- The plan's named `superpowers:subagent-driven-development` and `superpowers:executing-plans` skills were not available in this session, so the numbered steps were executed directly without delegation.

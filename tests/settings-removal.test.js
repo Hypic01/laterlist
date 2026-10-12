@@ -5,8 +5,7 @@ import Settings from "../web/src/components/Settings.jsx";
 
 const base = {
   me: {
-    email: "reader@test.dev", plan: "free", videoCap: 1000,
-    summariesUsed: 0, summaryQuota: 100, youtubeRemovalAvailable: true,
+    email: "reader@test.dev", youtubeRemovalAvailable: true,
   },
   extension: { present: true, connected: true, mismatch: false },
   extensionConnected: true,

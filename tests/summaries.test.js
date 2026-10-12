@@ -42,7 +42,7 @@ async function addReadyVideos(id, count, prefix = "s") {
 
 beforeEach(async () => {
   ({ db, pg } = await testDb());
-  config = loadConfig({ FREE_SUMMARY_QUOTA: "7", BUDGET_USD: "5" });
+  config = loadConfig({ BUDGET_USD: "5" });
   auth = createAuth({ verify: fakeVerifier(), db, adminEmails: ["boss@test.dev"] });
   importer = createImporter({ db, config });
   mentor = createMentor({ llm: createFakeLlm(), model: config.classifyModel });
@@ -50,73 +50,35 @@ beforeEach(async () => {
   userId = await provision();
 });
 
-describe("summary cache and free meter", () => {
-  it("returns a cache hit without spending tokens or another free summary", async () => {
+describe("summary cache", () => {
+  it("returns a cache hit without spending tokens or generating another summary", async () => {
     const [video] = await addReadyVideos(userId, 1);
     const first = await asUser(request(app).post(`/api/videos/${video.id}/summary`)).expect(200);
     expect(first.body.cached).toBe(false);
-    expect(first.body.summariesUsed).toBe(1);
+    expect(first.body.summaryQuota).toBeUndefined();
     const usageAfterFirst = await db.getConfig("global_usage");
 
     const second = await asUser(request(app).post(`/api/videos/${video.id}/summary`)).expect(200);
     expect(second.body.cached).toBe(true);
     expect(second.body.summary).toEqual(first.body.summary);
-    expect(second.body.summariesUsed).toBe(1);
+    expect(second.body.summaryQuota).toBeUndefined();
     expect(await db.getConfig("global_usage")).toEqual(usageAfterFirst);
     expect(await db.countSummariesThisMonth(userId)).toBe(1);
   });
 
-  it("allows exactly the monthly quota, then returns a 402 while cache still works", async () => {
+  it("allows another TL;DR after seven and still serves cached summaries", async () => {
     const videos = await addReadyVideos(userId, 8, "q");
     for (const video of videos.slice(0, 7)) {
       await asUser(request(app).post(`/api/videos/${video.id}/summary`)).expect(200);
     }
     expect(await db.countSummariesThisMonth(userId)).toBe(7);
 
-    const blocked = await asUser(request(app).post(`/api/videos/${videos[7].id}/summary`)).expect(402);
-    expect(blocked.body.upgrade).toBe(true);
-    expect(blocked.body.error).toContain("this month");
-    expect(blocked.body.summariesUsed).toBe(7);
-    expect(blocked.body.summaryQuota).toBe(7);
+    const eighth = await asUser(request(app).post(`/api/videos/${videos[7].id}/summary`)).expect(200);
+    expect(eighth.body.cached).toBe(false);
+    expect(eighth.body.summaryQuota).toBeUndefined();
 
     const cached = await asUser(request(app).post(`/api/videos/${videos[0].id}/summary`)).expect(200);
     expect(cached.body.cached).toBe(true);
-  });
-
-  it("the wall lifts when last month rolls over (calendar-month reset)", async () => {
-    const videos = await addReadyVideos(userId, 8, "r");
-    for (const video of videos.slice(0, 7)) {
-      await asUser(request(app).post(`/api/videos/${video.id}/summary`)).expect(200);
-    }
-    await asUser(request(app).post(`/api/videos/${videos[7].id}/summary`)).expect(402);
-
-    // Age every generated summary into last month: the meter resets to zero.
-    await pg.query(
-      "UPDATE summaries SET created_at = date_trunc('month', now()) - interval '1 day' WHERE user_id = $1",
-      [userId]
-    );
-    expect(await db.countSummariesThisMonth(userId)).toBe(0);
-    const fresh = await asUser(request(app).post(`/api/videos/${videos[7].id}/summary`)).expect(200);
-    expect(fresh.body.summariesUsed).toBe(1);
-  });
-
-  it("lets Pro users and admins bypass the monthly wall", async () => {
-    // Fill this month's quota with real generated summaries, then go pro:
-    // the 8th succeeds.
-    const videos = await addReadyVideos(userId, 8, "p");
-    for (const video of videos.slice(0, 7)) {
-      await asUser(request(app).post(`/api/videos/${video.id}/summary`)).expect(200);
-    }
-    await asUser(request(app).post(`/api/videos/${videos[7].id}/summary`)).expect(402);
-    await db.setPlan(userId, "pro", {});
-    await asUser(request(app).post(`/api/videos/${videos[7].id}/summary`)).expect(200);
-
-    const adminId = await provision("boss@test.dev");
-    const adminVideos = await addReadyVideos(adminId, 8, "a");
-    for (const video of adminVideos.slice(0, 7)) {
-      await asUser(request(app).post(`/api/videos/${video.id}/summary`), "boss@test.dev").expect(200);
-    }
-    await asUser(request(app).post(`/api/videos/${adminVideos[7].id}/summary`), "boss@test.dev").expect(200);
   });
 
   it("requires a transcript and returns a fetch hint", async () => {
