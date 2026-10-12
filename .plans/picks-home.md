@@ -530,6 +530,30 @@ In `tests/watch-picks-cli.test.js`, add a helper and tests (inside the existing 
     expect(JSON.parse(out[0])).toEqual([{ week: "2026-10-12", id: vid(1), title: "One", verdict: "worth" }]);
   });
 
+  it("list still excludes vault-note picks when the API history is empty", async () => {
+    await seedVideo(pg, { id: vid(1), title: "Keep" });
+    await seedVideo(pg, { id: vid(2), title: "Picked before the switch" });
+    fs.mkdirSync(deps.picksDir, { recursive: true });
+    fs.writeFileSync(path.join(deps.picksDir, "2026-10-05.md"),
+      `---\nweek: 2026-10-05\n---\n## 1. [Picked before the switch](https://www.youtube.com/watch?v=${vid(2)})\nVerdict: worth it\n`);
+    withApi([{ status: 200, body: [] }]);
+    expect(await main(["list"], deps)).toBe(0);
+    const lines = fs.readFileSync(path.join(work(), "list.tsv"), "utf8").split("\n").filter(Boolean);
+    expect(lines.slice(1).map((l) => l.split("\t")[0])).toEqual([vid(1)]);
+  });
+
+  it("past merges API and vault history, API verdict wins", async () => {
+    fs.mkdirSync(deps.picksDir, { recursive: true });
+    fs.writeFileSync(path.join(deps.picksDir, "2026-10-05.md"),
+      `---\nweek: 2026-10-05\n---\n## 1. [Old](https://www.youtube.com/watch?v=${vid(3)})\nVerdict: not\n## 2. [Both](https://www.youtube.com/watch?v=${vid(4)})\nVerdict: worth it | not | skipped\n`);
+    withApi([{ status: 200, body: [{ week: "2026-10-05", id: vid(4), title: "Both", verdict: "worth" }] }]);
+    expect(await main(["past"], deps)).toBe(0);
+    const rows = JSON.parse(out[0]);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.id === vid(4)).verdict).toBe("worth");
+    expect(rows.find((r) => r.id === vid(3)).verdict).toBe("not");
+  });
+
   it("list excludes recent picks from API history", async () => {
     await seedVideo(pg, { id: vid(1), title: "Keep" });
     await seedVideo(pg, { id: vid(2), title: "Picked in the app" });
@@ -603,15 +627,21 @@ export async function fetchHistory({ appUrl, apiToken, weeks = 8, fetchImpl = gl
 - Add a helper inside `main`:
 
 ```js
+  // API history (verdicts tapped in Laterlist) merged with the vault notes, so
+  // picks made before the switch to Laterlist still count. API verdict wins.
   const recentPicks = async (weeks) => {
+    const vault = pastPicks(o.picksDir, { now: o.now, weeks });
+    let fromApi = [];
     try {
       const env = loadPicksEnv(o.envPath);
-      return await fetchHistory({ appUrl: env.appUrl, apiToken: env.apiToken, weeks, fetchImpl: o.fetchImpl });
+      fromApi = await fetchHistory({ appUrl: env.appUrl, apiToken: env.apiToken, weeks, fetchImpl: o.fetchImpl });
     } catch (e) {
       if (!(e instanceof PicksApiError)) throw e;
-      o.err(`history from vault notes (${e.message})`);
-      return pastPicks(o.picksDir, { now: o.now, weeks });
+      o.err(`history from vault notes only (${e.message})`);
     }
+    const seen = new Set(fromApi.map((p) => `${p.week}|${p.id}`));
+    return [...fromApi, ...vault.filter((p) => !seen.has(`${p.week}|${p.id}`))]
+      .sort((a, b) => (a.week < b.week ? 1 : a.week > b.week ? -1 : 0));
   };
 ```
 
@@ -932,13 +962,13 @@ export default function ThisWeek({ onOpenLibrary, onOpenVideo, onLibraryChanged 
 }
 ```
 
-- [ ] **Step 5: Styles.** Add to `web/src/styles.css` (tokens only):
+- [ ] **Step 5: Styles.** Add to `web/src/styles.css` (tokens only; font sizes come from the app's existing scale: 28, 19, 13, phone 26):
 
 ```css
 /* ---- This week (picks home) ---- */
 .week { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5) 0; }
 .week__eyebrow { margin: 0; color: var(--muted); font-size: 13px; }
-.week__focus { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 34px; line-height: 1.15; }
+.week__focus { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 28px; line-height: 1.15; }
 .week__points { margin: 0; padding-left: var(--space-5); color: var(--muted); }
 .week__notice { margin: 0; color: var(--muted); }
 .week__picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--space-4); margin-top: var(--space-3); }
@@ -949,7 +979,7 @@ export default function ThisWeek({ onOpenLibrary, onOpenVideo, onLibraryChanged 
 .pick__body p { margin: 0; }
 .pick__row { display: flex; align-items: center; gap: var(--space-2); color: var(--muted); font-size: 13px; }
 .pick__dot { width: 8px; height: 8px; border-radius: var(--radius-pill); }
-.pick__title { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 21px; line-height: 1.25; }
+.pick__title { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 19px; line-height: 1.25; }
 .pick__title a, .pick__chip { color: inherit; text-decoration: none; }
 .pick__title a:hover { text-decoration: underline; }
 .pick__meta { color: var(--muted); font-size: 13px; }
@@ -959,7 +989,7 @@ export default function ThisWeek({ onOpenLibrary, onOpenVideo, onLibraryChanged 
 .pick__gets { margin: 0; padding-left: var(--space-5); }
 .pick__verdicts { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 .week__close { border-top: 1px solid var(--border); padding-top: var(--space-4); margin-top: var(--space-3); }
-.week__close summary { cursor: pointer; font-family: var(--font-display); font-size: 18px; }
+.week__close summary { cursor: pointer; font-family: var(--font-display); font-size: 19px; }
 .week__close ul { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .week__close-title { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .week__reason { display: block; color: var(--muted); font-size: 13px; }
@@ -1004,7 +1034,7 @@ export default function ThisWeek({ onOpenLibrary, onOpenVideo, onLibraryChanged 
 ### Task 5: Ship (Claude, Joon creates the key)
 
 - [ ] **Step 1:** Review Codex's commits against Tasks 1 and 2 line by line; `npm test` (all green, no EPERM outside the sandbox); `npm run build:web`.
-- [ ] **Step 2:** Push and open the PR. Ask Joon to OK the merge.
+- [ ] **Step 2:** Push and open the PR. Ask Joon to OK the merge, saying in the same sentence that merging also adds 2 tables (`pick_sets`, `pick_verdicts`) to the live Supabase database. Do not treat the design approval as consent for the database change.
 - [ ] **Step 3: Production migration before deploy.** Apply migration `010-picks` to the Supabase project `fjykuzbwhrpzpiqxzjeh` with the Supabase MCP `apply_migration` (the exact SQL from Task 1 Step 3), then `INSERT INTO schema_migrations (id) VALUES ('010-picks') ON CONFLICT DO NOTHING`. Verify both tables exist with RLS on.
 - [ ] **Step 4:** Merge (squash); wait for the Vercel production deploy; update the runtime copy: `git -C /Users/joonwoopark/projects/laterlist fetch origin && git -C /Users/joonwoopark/projects/laterlist-runtime checkout --detach origin/main && (cd /Users/joonwoopark/projects/laterlist-runtime && npm ci --omit=dev)`.
 - [ ] **Step 5: Joon creates the key.** Joon: Settings, Create picks key, Copy. Then in Terminal:
@@ -1014,7 +1044,7 @@ read -s "TK?Paste the picks key: " && printf 'PICKS_API_TOKEN=%s\n' "$TK" >> ~/.
 ```
 
 - [ ] **Step 6: Skill.** In `/Users/joonwoopark/.claude/skills/watch-picks/SKILL.md`, replace step 6's last paragraph with: "Run `CLI post WORK/picks.json`. It sends the picks to Laterlist and prints `posted: yes` and `open: <Laterlist URL>`, or, if Laterlist could not be reached, saves the local page and prints `posted: no (reason)` and `open: <html path>`. Run `open "<the path or URL on the open: line>"`." Also change the shell list's third bullet to `open "<the path or URL on the open: line>"`, and in step 1 item 4 note that `CLI past` now reads Joon's verdicts from Laterlist.
-- [ ] **Step 7: Live run.** Trigger the `watch-picks` scheduled task; confirm `posted: yes`, Laterlist opens on This week with this week's 3 picks; tap a verdict; `node .../watch-picks.mjs past` shows it.
+- [ ] **Step 7: Go live without a third set this week.** Do NOT trigger a fresh run (the 2026-10-12 08:12 run already picked this week's 3). Post the existing set: `node /Users/joonwoopark/projects/laterlist-runtime/scripts/watch-picks.mjs post "/Users/joonwoopark/Obsidian/Joon/2. Areas/Mentor/Picks/.work/2026-10-12/picks.json"`. Expect `posted: yes`; open `https://laterlist-app.vercel.app/app` and confirm This week shows those 3 picks; Joon taps one verdict; `node .../watch-picks.mjs past` shows it. If that picks.json is missing, re-date the approved 2026-10-05 set to 2026-10-12 and post that instead. Next Monday is the first fully in-app run.
 - [ ] **Step 8:** Log in the vault (`1. Projects/Laterlist/log.md`), update the decision doc status and memory.
 
 ## Definition of Done
