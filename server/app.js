@@ -1,7 +1,4 @@
-// Route factory. Everything injected: db, auth, importer (import + freemium
-// split), worker (job engine), billing (Stripe; optional until configured).
-// Billing webhook mounts BEFORE express.json so Stripe signature verification
-// sees the raw body.
+// Route factory. Everything injected: db, auth, importer, worker (job engine).
 
 import express from "express";
 import fs from "node:fs";
@@ -60,7 +57,6 @@ export function createApp({
   importer,
   worker,
   background = null,
-  billing,
   mentor,
   transcripts,
   config,
@@ -94,12 +90,6 @@ export function createApp({
     return false;
   }
 
-  if (billing) {
-    app.post("/api/billing/webhook", express.raw({ type: "application/json" }), (req, res) =>
-      billing.handleWebhook(req, res)
-    );
-  }
-
   const extensionOrigins = new Set(config.extensionOrigins || []);
   app.use((req, res, next) => {
     const imports = req.path === "/api/imports";
@@ -127,24 +117,15 @@ export function createApp({
   // ---- me ----
   app.get("/api/me", auth.required, async (req, res) => {
     const u = await db.getUser(req.user.id);
-    const [counts, summariesUsed, lastImportAt] = await Promise.all([
+    const [counts, lastImportAt] = await Promise.all([
       db.counts(req.user.id),
-      db.countSummariesThisMonth(req.user.id),
       db.lastImportAt(req.user.id),
     ]);
-    const pro = req.user.isAdmin || u.plan === "pro" || config.betaProForAll;
     res.json({
       id: u.id,
       email: u.email,
-      plan: pro ? "pro" : u.plan,
-      betaPro: Boolean(config.betaProForAll && u.plan !== "pro"),
       isAdmin: req.user.isAdmin,
       tasteProfile: u.taste_profile,
-      summaryQuota: config.freeSummaryQuota,
-      summariesUsed,
-      videoCap: pro ? config.proVideoCap : config.freeVideoCap,
-      proEndsAt: u.billing_ends_at ?? null,
-      proInterval: u.billing_interval ?? null,
       counts,
       lastImportAt,
       hasTaste: u.taste_profile && Object.keys(u.taste_profile).length > 0,
@@ -326,36 +307,22 @@ export function createApp({
   });
 
   app.post("/api/videos/:id/summary", auth.required, async (req, res) => {
-    const [detail, user, monthlyUsed] = await Promise.all([
+    const [detail, user] = await Promise.all([
       db.getVideoDetail(req.user.id, req.params.id),
       db.getUser(req.user.id),
-      db.countSummariesThisMonth(req.user.id),
     ]);
     if (!detail) return res.status(404).json({ error: "unknown video" });
-    const meter = (used = monthlyUsed) => ({
-      summariesUsed: used,
-      summaryQuota: config.freeSummaryQuota,
-    });
     if (detail.summary) {
-      return res.json({ summary: detail.summary, cached: true, ...meter() });
+      return res.json({ summary: detail.summary, cached: true });
     }
     const video = await db.getVideoTranscript(req.user.id, req.params.id);
     if (!video.transcript_available || !video.transcript) {
       return res.status(400).json({
         error: "Fetch the transcript before asking for a summary.",
         needsTranscript: true,
-        ...meter(),
       });
     }
 
-    const bypass = req.user.isAdmin || user.plan === "pro" || config.betaProForAll;
-    if (!bypass && monthlyUsed >= config.freeSummaryQuota) {
-      return res.status(402).json({
-        error: `You've used all ${config.freeSummaryQuota} free TL;DRs this month. They reset on the 1st.`,
-        upgrade: true,
-        ...meter(),
-      });
-    }
     if (!mentor) {
       return res.status(503).json({ error: "The summary service is not configured yet." });
     }
@@ -381,10 +348,10 @@ export function createApp({
     });
 
     // A concurrent request may have filled the cache while this request was at
-    // the model. Return that winner without spending the user's free meter.
+    // the model. Return that winner.
     if (!saved) {
       const winner = await db.getSummary(req.user.id, req.params.id);
-      if (winner) return res.json({ summary: winner.summary, cached: true, ...meter() });
+      if (winner) return res.json({ summary: winner.summary, cached: true });
       return res.status(502).json({ error: "Couldn't save this summary. Please try again." });
     }
 
@@ -396,8 +363,7 @@ export function createApp({
       videosClassified: 0,
       costUsd: estimateCostUsd({ inputTokens: usage.input, outputTokens: usage.output, batch: false }),
     });
-    // The saved row IS the meter increment (count-of-rows this month).
-    res.json({ summary: generated.summary, cached: false, ...meter(monthlyUsed + 1) });
+    res.json({ summary: generated.summary, cached: false });
   });
 
   app.post("/api/videos/:id/category", auth.required, async (req, res) => {
@@ -432,12 +398,6 @@ export function createApp({
     }
     res.json({ ok: true, marked: moved.length });
   });
-
-  // ---- billing (mounted when configured) ----
-  if (billing) {
-    app.post("/api/billing/checkout", auth.required, (req, res) => billing.createCheckout(req, res));
-    app.get("/api/billing/portal", auth.required, (req, res) => billing.createPortal(req, res));
-  }
 
   // Cron backstop (Vercel sends Authorization: Bearer CRON_SECRET): catches
   // abandoned jobs when nobody is polling. Also the hand-off target for a

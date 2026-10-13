@@ -6,7 +6,7 @@ import { PHONE_QUERY } from "../web/src/phone/useIsPhone.js";
 
 const v = (id, position) => ({ id, title: `Title ${id}`, channel: "C", duration_seconds: 600, playlist_position: position, kept_at: null });
 const board = { learn: [v("a", 1), v("b", 2)], watch: [v("c", 3)], music: [], entertainment: [], outdated: [] };
-const me = (counts) => ({ email: "a@test.dev", plan: "pro", removeFromYoutube: false, counts });
+const me = (counts) => ({ email: "a@test.dev", removeFromYoutube: false, counts });
 const render = (props) => renderToStaticMarkup(React.createElement(PhoneApp, {
   board, job: null, reload: async () => {}, onSummaryUsed: () => {}, ...props,
 }));

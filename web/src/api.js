@@ -48,6 +48,4 @@ export const getVideo = (id) => call(videoUrl(id));
 export const saveTranscript = (id, payload) => post(`${videoUrl(id)}/transcript`, payload);
 export const fetchTranscriptFromServer = (id) => post(`${videoUrl(id)}/transcript/fetch`);
 export const summarizeVideo = (id) => post(`${videoUrl(id)}/summary`);
-export const checkoutUrl = () => post("/api/billing/checkout");
-export const portalUrl = () => call("/api/billing/portal");
 export const fetchSnippet = () => fetch("/collector.js").then((r) => (r.ok ? r.text() : Promise.reject(new Error("snippet unavailable"))));

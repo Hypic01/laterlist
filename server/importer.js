@@ -1,9 +1,5 @@
-// Import handling. The plan decides how much a library can HOLD (free keeps
-// the newest freeVideoCap videos, pro gets the fair-use proVideoCap) and
-// everything stored gets classified — there is no per-video paywall anymore
-// (M8). Caps derive from plan at request time, never from the vestigial
-// video_cap column, so downgrades keep everything already stored and simply
-// stop new imports beyond the free cap.
+// Import handling. One safety cap limits stored videos; every stored video is
+// classified. The old plan and video_cap database columns are unused.
 
 const VIDEO_ID_RE = /^[\w-]{5,20}$/;
 const CONTROL_RE = new RegExp("[" + String.fromCharCode(0) + "-" + String.fromCharCode(31) + String.fromCharCode(127) + "]", "g");
@@ -33,23 +29,17 @@ function sanitizeVideos(raw) {
 }
 
 export function createImporter({ db, config }) {
-  function isPro(user, dbUser) {
-    return user.isAdmin || dbUser.plan === "pro" || config.betaProForAll;
-  }
-
-  async function startJob(user, dbUser, tier, total) {
+  async function startJob(user, total) {
     // Only Haiku has a batch API; Jev sorts thousands in seconds synchronously.
     const mode = total > config.batchThreshold && config.classifier === "haiku" ? "batch" : "sync";
-    return db.createJob(user.id, { mode, tier, total });
+    // The job schema still requires a vestigial tier value.
+    return db.createJob(user.id, { mode, tier: "pro", total });
   }
 
   return {
     async handleImport(user, body) {
       if (config.llmReady === false) {
         return { status: 503, body: { error: "the sorting engine isn't configured yet — check back soon" } };
-      }
-      if (config.betaAllowlist.length && !config.betaAllowlist.includes(user.email.toLowerCase()) && !user.isAdmin) {
-        return { status: 403, body: { error: "the beta is invite-only right now — ask for an invite!" } };
       }
       const source = ["console", "extension", "file"].includes(body?.source) ? body.source : null;
       const videos = sanitizeVideos(body?.videos);
@@ -64,16 +54,13 @@ export function createImporter({ db, config }) {
         return { status: 409, body: { error: "a sort is already running — let it finish first" } };
       }
 
-      const dbUser = await db.getUser(user.id);
-      const pro = isPro(user, dbUser);
-      const cap = pro ? config.proVideoCap : config.freeVideoCap;
-      const { added, duplicates, capped } = await db.upsertFromImport(user.id, videos, cap);
+      const { added, duplicates, capped } = await db.upsertFromImport(user.id, videos, config.libraryCap);
       await db.createImport(user.id, source, videos.length, added);
 
-      // Everything stored gets classified, on every plan.
+      // Everything stored gets classified.
       const unscanned = await db.countUnscanned(user.id);
       let job = null;
-      if (unscanned > 0) job = await startJob(user, dbUser, pro ? "pro" : "free", unscanned);
+      if (unscanned > 0) job = await startJob(user, unscanned);
 
       return {
         status: 200,
@@ -94,13 +81,12 @@ export function createImporter({ db, config }) {
       if (config.llmReady === false) {
         return { status: 503, body: { error: "the sorting engine isn't configured yet — check back soon" } };
       }
-      const dbUser = await db.getUser(user.id);
       if (await db.getActiveJob(user.id)) {
         return { status: 409, body: { error: "a sort is already running — let it finish first" } };
       }
       const unscanned = await db.countUnscanned(user.id);
       if (!unscanned) return { status: 400, body: { error: "nothing left to sort" } };
-      const job = await startJob(user, dbUser, isPro(user, dbUser) ? "pro" : "free", unscanned);
+      const job = await startJob(user, unscanned);
       return { status: 200, body: { jobId: job.id, willClassify: unscanned } };
     },
   };

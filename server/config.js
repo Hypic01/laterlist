@@ -26,23 +26,18 @@ export function loadConfig(env = process.env) {
     chunkSize: Number(env.CHUNK_SIZE) || 25,
     batchThreshold: Number(env.BATCH_THRESHOLD) || 500,
 
-    // Tiers (M8): free stores the newest freeVideoCap videos and classifies
-    // all of them; freeSummaryQuota is TL;DRs per calendar month. Pro's cap
-    // is fair use, marketed unlimited. Caps derive from plan at request time.
-    // Beta: every account gets Pro treatment at no charge. One env var,
-    // zero data changes — ending the beta is removing it and redeploying.
-    betaProForAll: bool(env.BETA_PRO_FOR_ALL),
     youtubeRemoval: ["off", "admins", "all"].includes(env.YOUTUBE_REMOVAL) ? env.YOUTUBE_REMOVAL : "off",
-    freeVideoCap: Number(env.FREE_VIDEO_CAP) || 1000,
-    proVideoCap: Number(env.PRO_VIDEO_CAP) || 25000,
-    freeSummaryQuota: Number(env.FREE_SUMMARY_QUOTA) || 100,
     budgetUsd: Number(env.BUDGET_USD) || 100,
     importsPerHour: Number(env.IMPORTS_PER_HOUR) || 5,
 
     extensionOrigins: (env.EXTENSION_IDS || "").split(",").map((s) => s.trim()).filter(Boolean)
       .map((id) => `chrome-extension://${id}`),
     adminEmails: (env.ADMIN_EMAILS || "").split(",").map((s) => s.trim()).filter(Boolean),
-    betaAllowlist: (env.BETA_ALLOWLIST || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+    // Private tool (2026-10-12): only these emails may sign in. Falls back to
+    // ADMIN_EMAILS when OWNER_EMAILS is unset. Empty in production refuses everyone.
+    ownerEmails: (env.OWNER_EMAILS || env.ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+    // Safety limit on stored videos (not a plan): default is the old fair-use number.
+    libraryCap: Number(env.LIBRARY_CAP) || 25000,
 
     // Serverless mode (Vercel): no interval worker exists, so user status
     // polls advance due work in bounded bites, and a cron can backstop.
@@ -55,14 +50,6 @@ export function loadConfig(env = process.env) {
     backgroundMaxHops: Number(env.BACKGROUND_MAX_HOPS) || 30,
     cronSecret: env.CRON_SECRET || "",
 
-    // Polar (merchant of record). All four required to enable billing; absent
-    // means the upgrade flow is off (the pre-launch state). POLAR_SERVER must
-    // be explicitly set to "production" at go-live — the default is sandbox.
-    polarAccessToken: env.POLAR_ACCESS_TOKEN || "",
-    polarWebhookSecret: env.POLAR_WEBHOOK_SECRET || "",
-    polarProductMonthlyId: env.POLAR_PRODUCT_MONTHLY_ID || "",
-    polarProductAnnualId: env.POLAR_PRODUCT_ANNUAL_ID || "",
-    polarServer: env.POLAR_SERVER === "production" ? "production" : "sandbox",
   };
 }
 

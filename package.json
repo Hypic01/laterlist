@@ -14,12 +14,10 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
-    "@polar-sh/sdk": "^0.48.1",
     "@vercel/functions": "^3.9.9",
     "express": "^4.19.2",
     "jose": "^5.9.6",
-    "pg": "^8.13.1",
-    "standardwebhooks": "^1.0.0"
+    "pg": "^8.13.1"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.2.14",

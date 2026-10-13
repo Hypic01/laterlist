@@ -40,8 +40,23 @@ export function fakeVerifier() {
   };
 }
 
-export function createAuth({ verify, db, adminEmails = [] }) {
+export function createAuth({ verify, db, adminEmails = [], ownerEmails = [], lockWhenEmpty = false }) {
   const admins = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
+  const owners = new Set(ownerEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
+  const locked = owners.size > 0 || lockWhenEmpty;
+  const PRIVATE = { error: "This Laterlist is private." };
+  let warned = false;
+
+  // Laterlist is a private tool: only owners get in, checked before any
+  // user row is created. Locked with no owners refuses everyone, loudly.
+  function isOwner(email) {
+    if (!locked) return true;
+    if (!owners.size && !warned) {
+      warned = true;
+      console.error("[auth] OWNER_EMAILS is not set: this private Laterlist refuses every sign-in");
+    }
+    return owners.has(String(email || "").toLowerCase());
+  }
 
   async function required(req, res, next) {
     const header = req.headers.authorization || "";
@@ -54,6 +69,7 @@ export function createAuth({ verify, db, adminEmails = [] }) {
       return res.status(401).json({ error: "invalid token" });
     }
     if (!claims?.sub || !claims?.email) return res.status(401).json({ error: "invalid token claims" });
+    if (!isOwner(claims.email)) return res.status(403).json(PRIVATE);
     const user = await db.upsertUser({ id: claims.sub, email: claims.email });
     req.user = { id: user.id, email: user.email, isAdmin: admins.has(user.email.toLowerCase()) };
     next();
@@ -76,6 +92,7 @@ export function createAuth({ verify, db, adminEmails = [] }) {
       }
       const user = await db.getUser(token.user_id);
       if (!user) return res.status(401).json({ error: "invalid import token" });
+      if (!isOwner(user.email)) return res.status(403).json(PRIVATE);
       req.user = {
         id: user.id,
         email: user.email,

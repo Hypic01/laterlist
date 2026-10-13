@@ -20,7 +20,7 @@ const TOAST_TEXT = { dismiss: "Removed", done: "Marked watched", keep: "Kept" };
 const TAB_SCREENS = new Set(["board", "row", "settings"]);
 const ROOT = [{ name: "board" }];
 
-export default function PhoneApp({ me, board, job, reload, onSummaryUsed }) {
+export default function PhoneApp({ me, board, job, reload }) {
   // Screens form a stack. A "sheet" entry sits on top of the screen it covers.
   const [stack, setStack] = useState([{ name: "board" }]);
   const [overlay, setOverlay] = useState({});
@@ -204,7 +204,7 @@ export default function PhoneApp({ me, board, job, reload, onSummaryUsed }) {
           youtubeNote={removalQueued ? `Mark watched hides it here. ${REMOVAL_NOTE}` : null}
           onBack={back} onMove={async (id, category) => move(video, category)}
           onDismiss={async () => remove(video)} onDone={async () => remove(video, "done")}
-          onToast={flashToast} onSummaryUsed={onSummaryUsed} />
+          onToast={flashToast} />
       </div>
     );
   }

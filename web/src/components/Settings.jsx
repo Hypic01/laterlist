@@ -5,9 +5,6 @@ import { ArrowLeftIcon, LogOutIcon, SunIcon, MoonIcon } from "./icons.jsx";
 import ExtensionConnection from "./ExtensionConnection.jsx";
 import CleanupChecklist from "./CleanupChecklist.jsx";
 
-const DATE_FORMAT = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
-const formatDate = (value) => DATE_FORMAT.format(new Date(value));
-
 export default function Settings({
   me,
   onBack,
@@ -23,7 +20,6 @@ export default function Settings({
   onImportManually,
   historyRemovesFromYoutube,
 }) {
-  const [busy, setBusy] = useState(false);
   const [tokens, setTokens] = useState([]);
   const [tokensLoading, setTokensLoading] = useState(true);
   const [tokenBusy, setTokenBusy] = useState(null);
@@ -49,32 +45,6 @@ export default function Settings({
       .finally(() => { if (active) setTokensLoading(false); });
     return () => { active = false; };
   }, [onToast]);
-
-  const managePlan = async () => {
-    setBusy(true);
-    try {
-      const { url } = await api.portalUrl();
-      location.href = url;
-    } catch (e) {
-      onToast(e.status === 400 ? "No subscription yet." : e.message);
-      setBusy(false);
-    }
-  };
-
-  const upgrade = async () => {
-    setBusy(true);
-    try {
-      const { url } = await api.checkoutUrl();
-      location.href = url;
-    } catch (e) {
-      onToast(
-        e.status === 404
-          ? "Pro isn't open yet, you're early! Everything you have stays free."
-          : e.message
-      );
-      setBusy(false);
-    }
-  };
 
   const deleteAccount = async () => {
     if (!window.confirm("Delete your account and every imported video? This cannot be undone.")) return;
@@ -159,31 +129,6 @@ export default function Settings({
               <SunIcon size={14} /> Light
             </button>
           </div>
-        </div>
-      </div>
-
-      <div className="settings__block">
-        <h3>Plan</h3>
-        <div className="settings__row">
-          <p>
-            {me.betaPro
-              ? "Beta: Pro is free for everyone right now. Paid plans arrive after the beta."
-              : me.plan === "pro"
-              ? me.proEndsAt
-                ? `Pro${me.proInterval === "year" ? " (yearly)" : me.proInterval === "month" ? " (monthly)" : ""} until ${formatDate(me.proEndsAt)}. Your library stays sorted after that.`
-                : `Pro${me.proInterval === "year" ? ", billed yearly" : me.proInterval === "month" ? ", billed monthly" : ""}. Your whole backlog, unlimited TL;DRs.`
-              : `Free. Your newest ${Number(me.videoCap).toLocaleString()} videos, ` +
-                `${Number(me.summariesUsed).toLocaleString()} of ${Number(me.summaryQuota).toLocaleString()} TL;DRs used this month.`}
-          </p>
-          {me.betaPro ? null : me.plan === "pro" && !me.isAdmin ? (
-            <button className="btn btn--ghost" disabled={busy} onClick={managePlan}>
-              Manage subscription
-            </button>
-          ) : me.plan !== "pro" ? (
-            <button className="btn btn--primary" disabled={busy} onClick={upgrade}>
-              Upgrade to Pro
-            </button>
-          ) : null}
         </div>
       </div>
 

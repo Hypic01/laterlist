@@ -12,7 +12,7 @@ const asUser = (r, email = "user@test.dev") => r.set("Authorization", `Bearer de
 const payload = (n, opts = {}) => ({ v: 1, source: "console", videos: vids(n), ...opts });
 
 function build(configOverrides = {}) {
-  config = loadConfig({ CHUNK_SIZE: "10", BATCH_THRESHOLD: "500", FREE_VIDEO_CAP: "120", ...configOverrides });
+  config = loadConfig({ CHUNK_SIZE: "10", BATCH_THRESHOLD: "500", LIBRARY_CAP: "120", ...configOverrides });
   const auth = createAuth({ verify: fakeVerifier(), db, adminEmails: ["boss@test.dev"] });
   const importer = createImporter({ db, config });
   app = createApp({ db, auth, importer, config });
@@ -43,19 +43,18 @@ describe("auth coverage", () => {
   });
 });
 
-describe("imports & plan caps", () => {
-  it("free imports cap at the plan limit and everything stored classifies", async () => {
+describe("imports & safety cap", () => {
+  it("imports cap at the safety limit and everything stored classifies", async () => {
     const res = await asUser(request(app).post("/api/imports")).send(payload(150)).expect(200);
-    expect(res.body.added).toBe(120); // FREE_VIDEO_CAP in this config
+    expect(res.body.added).toBe(120);
     expect(res.body.capped).toBe(30);
     expect(res.body.willClassify).toBe(120);
     expect(res.body.locked).toBe(0);
     expect(res.body.jobId).toBeTruthy();
   });
 
-  it("pro users store past the free cap", async () => {
-    const me = await asUser(request(app).get("/api/me"));
-    await db.setPlan(me.body.id, "pro", {});
+  it("a larger safety cap stores the full import without a plan", async () => {
+    build({ LIBRARY_CAP: "25000" });
     const res = await asUser(request(app).post("/api/imports")).send(payload(150)).expect(200);
     expect(res.body.added).toBe(150);
     expect(res.body.capped).toBe(0);
@@ -101,32 +100,7 @@ describe("imports & plan caps", () => {
     await asUser(request(app).post("/api/imports")).send(payload(1)).expect(429);
   });
 
-  it("enforces the beta allowlist (admins exempt)", async () => {
-    build({ BETA_ALLOWLIST: "vip@test.dev" });
-    await asUser(request(app).post("/api/imports"), "rando@test.dev").send(payload(2)).expect(403);
-    await asUser(request(app).post("/api/imports"), "vip@test.dev").send(payload(2)).expect(200);
-    await asUser(request(app).post("/api/imports"), "boss@test.dev").send(payload(2)).expect(200);
-  });
-
-  it("BETA_PRO_FOR_ALL gives every account pro treatment, reversibly", async () => {
-    build({ BETA_PRO_FOR_ALL: "1" });
-    // pro cap applies to a plain free user
-    const res = await asUser(request(app).post("/api/imports")).send(payload(150)).expect(200);
-    expect(res.body.added).toBe(150); // past the 120 free cap in this config
-    expect(res.body.capped).toBe(0);
-    const me = await asUser(request(app).get("/api/me")).expect(200);
-    expect(me.body.plan).toBe("pro");
-    expect(me.body.betaPro).toBe(true);
-    expect(me.body.videoCap).toBe(25000);
-    // flag off → back to the free contract (no data damage)
-    build();
-    const after = await asUser(request(app).get("/api/me")).expect(200);
-    expect(after.body.plan).toBe("free");
-    expect(after.body.betaPro).toBe(false);
-    expect(after.body.videoCap).toBe(120);
-  });
-
-  it("classify-remaining works for free users (the 402 paywall is gone)", async () => {
+  it("classify-remaining works for every user", async () => {
     await asUser(request(app).post("/api/imports")).send(payload(120)).expect(200);
     const me = await asUser(request(app).get("/api/me"));
     await db.finishJob((await db.getActiveJob(me.body.id)).id, "completed");
@@ -192,12 +166,10 @@ describe("board & actions", () => {
 });
 
 describe("me & admin", () => {
-  it("/api/me returns quota info; taste round-trips; delete empties", async () => {
+  it("/api/me omits plan and quota fields; taste round-trips; delete empties", async () => {
     let me = await asUser(request(app).get("/api/me")).expect(200);
-    expect(me.body.plan).toBe("free");
-    expect(me.body.videoCap).toBe(120); // FREE_VIDEO_CAP in this config
-    expect(me.body.summaryQuota).toBe(100);
-    expect(me.body.summariesUsed).toBe(0);
+    for (const key of ["plan", "beta" + "Pro", "summaryQuota", "summariesUsed", "videoCap", "proEndsAt", "proInterval"])
+      expect(me.body).not.toHaveProperty(key);
     expect(me.body.freeQuota).toBeUndefined();
     expect(me.body.freeUsed).toBeUndefined();
     await asUser(request(app).put("/api/me/taste")).send({ interests: ["design"], note: "hi" }).expect(200);
@@ -236,9 +208,8 @@ describe("me & admin", () => {
     expect((await db.getConfig("kill_switch")).on).toBe(true);
   });
 
-  it("admin plan reads as pro in /api/me", async () => {
+  it("admins are flagged in /api/me", async () => {
     const me = await asUser(request(app).get("/api/me"), "boss@test.dev");
-    expect(me.body.plan).toBe("pro");
     expect(me.body.isAdmin).toBe(true);
   });
 });
