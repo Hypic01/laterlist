@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { CATEGORIES } from "./db.js";
 import { hashToken } from "./auth.js";
 import { estimateCostUsd } from "./config.js";
+import { PicksDataError, validatePicks, VERDICTS, pickIds, isRealDate } from "./picks.js";
 
 const MAX_TRANSCRIPT_BYTES = 1024 * 1024;
 const MAX_TRANSCRIPT_CHARS = 250000;
@@ -162,7 +163,7 @@ export function createApp({
   // ---- api tokens ----
   app.post("/api/tokens", auth.required, async (req, res) => {
     const scope = String(req.body?.scope || "");
-    if (!["imports", "bridge"].includes(scope)) return res.status(400).json({ error: "unknown token scope" });
+    if (!["imports", "bridge", "picks"].includes(scope)) return res.status(400).json({ error: "unknown token scope" });
     if (scope === "bridge" && !req.user.isAdmin) return res.status(403).json({ error: "admin only" });
     const label = String(req.body?.label || "").trim().slice(0, 100);
     const token = "wll_" + randomBytes(32).toString("base64url");
@@ -397,6 +398,72 @@ export function createApp({
       await db.enqueueYoutubeRemovals(req.user.id, moved, "done");
     }
     res.json({ ok: true, marked: moved.length });
+  });
+
+  // ---- weekly picks: the Mac run posts, the app shows (2026-10-12) ----
+  app.post("/api/picks", auth.jwtOrToken("picks"), async (req, res) => {
+    let set;
+    try {
+      set = validatePicks(req.body);
+    } catch (e) {
+      if (e instanceof PicksDataError) return res.status(400).json({ error: e.message });
+      throw e;
+    }
+    if (set.error) return res.status(400).json({ error: "an error-only picks set is not stored" });
+    const ids = pickIds(set);
+    const have = await db.libraryHas(req.user.id, ids);
+    const unknown = ids.find((id) => !have.has(id));
+    if (unknown) return res.status(400).json({ error: `video ${unknown} is not in your library` });
+    await db.upsertPickSet(req.user.id, set.week, set);
+    res.json({ week: set.week, picks: set.picks.length });
+  });
+
+  app.get("/api/picks/current", auth.required, async (req, res) => {
+    const row = await db.latestPickSet(req.user.id);
+    if (!row) return res.json({ set: null });
+    const p = row.payload;
+    const [videos, verdicts] = await Promise.all([
+      db.videosByIds(req.user.id, pickIds(p)),
+      db.pickVerdicts(req.user.id, row.week),
+    ]);
+    res.json({
+      set: {
+        ...p,
+        week: row.week,
+        updatedAt: row.updated_at,
+        picks: p.picks.map((x) => ({ ...x, video: videos[x.id] || null, verdict: verdicts[x.id] || null })),
+        // Openable only while it is still on the board (scanned), where the app looks it up.
+        closeButNo: p.closeButNo.map((x) => ({ ...x, inLibrary: videos[x.id]?.status === "scanned" })),
+      },
+    });
+  });
+
+  app.post("/api/picks/:week/verdict", auth.required, async (req, res) => {
+    const { week } = req.params;
+    const { videoId, verdict } = req.body || {};
+    if (!isRealDate(week)) return res.status(400).json({ error: "bad week" });
+    if (!VERDICTS.includes(verdict)) return res.status(400).json({ error: "verdict must be worth, not or skipped" });
+    if (!/^[A-Za-z0-9_-]{11}$/.test(String(videoId || ""))) return res.status(400).json({ error: "bad video id" });
+    // Only a current pick of that week can get a verdict (and be marked done).
+    const set = await db.pickSet(req.user.id, week);
+    if (!set || !(set.payload.picks || []).some((x) => x.id === videoId)) {
+      return res.status(404).json({ error: "that video is not one of this week's picks" });
+    }
+    await db.setPickVerdict(req.user.id, week, videoId, verdict);
+    let marked = 0;
+    if (verdict !== "skipped") {
+      const moved = await db.markDoneIds(req.user.id, [videoId]);
+      marked = moved.length;
+      if (moved.length && removalAllowed(req.user)) {
+        await db.enqueueYoutubeRemovals(req.user.id, moved, "done");
+      }
+    }
+    res.json({ ok: true, marked });
+  });
+
+  app.get("/api/picks/history", auth.jwtOrToken("picks"), async (req, res) => {
+    const weeks = Math.min(52, Math.max(1, Number(req.query.weeks) || 8));
+    res.json(await db.pickHistory(req.user.id, weeks));
   });
 
   // Cron backstop (Vercel sends Authorization: Bearer CRON_SECRET): catches

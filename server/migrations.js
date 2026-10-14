@@ -206,6 +206,31 @@ export const MIGRATIONS = [
       ALTER TABLE videos ADD COLUMN IF NOT EXISTS kept_at timestamptz;
     `,
   },
+  {
+    id: "010-picks",
+    sql: `
+      CREATE TABLE IF NOT EXISTS pick_sets (
+        user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        week date NOT NULL,
+        payload jsonb NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (user_id, week)
+      );
+      CREATE TABLE IF NOT EXISTS pick_verdicts (
+        user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        week date NOT NULL,
+        video_id text NOT NULL,
+        verdict text NOT NULL CHECK (verdict IN ('worth', 'not', 'skipped')),
+        decided_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (user_id, week, video_id)
+      );
+      ALTER TABLE pick_sets ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE pick_verdicts ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE api_tokens DROP CONSTRAINT IF EXISTS api_tokens_scope_check;
+      ALTER TABLE api_tokens ADD CONSTRAINT api_tokens_scope_check CHECK (scope IN ('imports', 'bridge', 'picks'));
+    `,
+  },
 ];
 
 export async function migrate(q) {

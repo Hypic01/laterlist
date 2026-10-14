@@ -143,3 +143,12 @@ describe("pastPicks", () => {
     expect(pastPicks("/nonexistent/picks", { now: new Date(), weeks: 8 })).toEqual([]);
   });
 });
+
+describe("posted note", () => {
+  it("says to tap the verdict in Laterlist and parses it as unfilled", () => {
+    const md = renderMarkdown(validatePicks(base()), { posted: true });
+    expect(md).toContain("Verdict: tap it in Laterlist");
+    expect(md).not.toContain("worth it | not | skipped");
+    expect(parsePicksNote(md).picks[0].verdict).toBe(null);
+  });
+});

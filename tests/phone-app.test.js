@@ -16,15 +16,20 @@ describe("PhoneApp", () => {
     expect(PHONE_QUERY).toBe("(max-width: 640px), (pointer: coarse) and (max-height: 500px)");
   });
 
-  it("opens on the Board with the three tabs and the review count", () => {
+  it("opens on This week with This week, Library, Clean up and Settings tabs", () => {
     const html = render({ me: me({ scanned: 3, unscanned: 0, done: 0, dismissed: 0 }) });
-    expect(html).toContain("Your rows");
+    expect(html).toContain('class="week"');
     expect(html).toContain('aria-label="Main"');
+    expect(html).toMatch(/class="ph-tab is-on" aria-current="page">.*This week/);
+    expect(html).toContain("Library");
+    expect(html).not.toContain(">Board<");
     expect(html).toContain('<span class="ph-tab__badge">3</span>');
     expect(html).toContain("Settings");
   });
 
-  it("sends a brand new user to their computer", () => {
-    expect(render({ me: me({ scanned: 0, unscanned: 0, done: 0, dismissed: 0 }) })).toContain("Start on your computer");
+  it("a brand new user also lands on This week, with Library one tap away", () => {
+    const html = render({ me: me({ scanned: 0, unscanned: 0, done: 0, dismissed: 0 }) });
+    expect(html).toContain('class="week"');
+    expect(html).toContain("Library");
   });
 });

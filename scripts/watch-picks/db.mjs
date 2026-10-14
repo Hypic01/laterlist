@@ -35,7 +35,12 @@ export function loadPicksEnv(envPath) {
   if (!email.includes("@")) {
     throw new PicksEnvError(`PICKS_EMAIL in ${envPath} is missing.`);
   }
-  return { url, email };
+  return {
+    url,
+    email,
+    apiToken: env.PICKS_API_TOKEN || "",
+    appUrl: (env.PICKS_APP_URL || "https://laterlist-app.vercel.app").replace(/\/+$/, ""),
+  };
 }
 
 export async function connect(url) {

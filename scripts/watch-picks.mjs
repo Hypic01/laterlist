@@ -15,6 +15,8 @@ import {
   PicksDataError, validatePicks, renderHtml, renderMarkdown, outputPaths, pastPicks, weekId,
 } from "./watch-picks/render.mjs";
 
+import { PicksApiError, postPicks, fetchHistory } from "./watch-picks/api.mjs";
+
 const PICKS_DIR = path.join(os.homedir(), "Obsidian", "Joon", "2. Areas", "Mentor", "Picks");
 
 export const DEFAULTS = {
@@ -25,7 +27,7 @@ export const DEFAULTS = {
   ytDlp: "/Library/Frameworks/Python.framework/Versions/3.10/bin/yt-dlp",
 };
 
-const USAGE = "usage: watch-picks.mjs <work|check|list|details <ids>|transcripts <ids>|fetch-subs <ids>|clean-subs|render <picks.json>|past [weeks]>";
+const USAGE = "usage: watch-picks.mjs <work|check|list|details <ids>|transcripts <ids>|fetch-subs <ids>|clean-subs|render <picks.json>|post <picks.json>|past [weeks]>";
 
 function cleanSubs(work, out) {
   const subs = path.join(work, "subs");
@@ -45,6 +47,7 @@ export async function main(argv, deps = {}) {
     ...DEFAULTS,
     connect,
     runYtDlp,
+    fetchImpl: globalThis.fetch,
     now: new Date(),
     out: (s) => process.stdout.write(`${s}\n`),
     err: (s) => process.stderr.write(`${s}\n`),
@@ -64,6 +67,23 @@ export async function main(argv, deps = {}) {
     }
   };
 
+  // API history (verdicts tapped in Laterlist) merged with the vault notes, so
+  // picks made before the switch to Laterlist still count. API verdict wins.
+  const recentPicks = async (weeks) => {
+    const vault = pastPicks(o.picksDir, { now: o.now, weeks });
+    let fromApi = [];
+    try {
+      const env = loadPicksEnv(o.envPath);
+      fromApi = await fetchHistory({ appUrl: env.appUrl, apiToken: env.apiToken, weeks, fetchImpl: o.fetchImpl });
+    } catch (e) {
+      if (!(e instanceof PicksApiError)) throw e;
+      o.err(`history from vault notes only (${e.message})`);
+    }
+    const seen = new Set(fromApi.map((p) => `${p.week}|${p.id}`));
+    return [...fromApi, ...vault.filter((p) => !seen.has(`${p.week}|${p.id}`))]
+      .sort((a, b) => (a.week < b.week ? 1 : a.week > b.week ? -1 : 0));
+  };
+
   try {
     switch (cmd) {
       case "work": {
@@ -80,7 +100,7 @@ export async function main(argv, deps = {}) {
         return r.ok ? 0 : 1;
       }
       case "list": {
-        const exclude = [...new Set(pastPicks(o.picksDir, { now: o.now, weeks: 8 }).map((p) => p.id))];
+        const exclude = [...new Set((await recentPicks(8)).map((p) => p.id))];
         const rows = await withDb((q, email) => listEligible(q, { email, excludeIds: exclude }));
         ensureWork();
         const file = path.join(work, "list.tsv");
@@ -178,9 +198,39 @@ export async function main(argv, deps = {}) {
         o.out(md);
         return 0;
       }
+      case "post": {
+        if (!arg) {
+          o.err("post needs the path to picks.json");
+          return 2;
+        }
+        let raw;
+        try {
+          raw = JSON.parse(fs.readFileSync(arg, "utf8"));
+        } catch (e) {
+          throw new PicksDataError(`picks.json is not valid JSON: ${String(e.message).split("\n")[0]}`);
+        }
+        const data = validatePicks(raw);
+        const env = loadPicksEnv(o.envPath);
+        fs.mkdirSync(o.picksDir, { recursive: true });
+        const { html, md } = outputPaths(o.picksDir, data.week);
+        try {
+          if (data.error) throw new PicksApiError(`not posted: ${data.error}`);
+          await postPicks({ appUrl: env.appUrl, apiToken: env.apiToken, data, fetchImpl: o.fetchImpl });
+          fs.writeFileSync(md, renderMarkdown(data, { posted: true }));
+          o.out(`posted: yes (${data.picks.length} picks for ${data.week})`);
+          o.out(`open: ${env.appUrl}/app`);
+        } catch (e) {
+          if (!(e instanceof PicksApiError)) throw e;
+          fs.writeFileSync(html, renderHtml(data));
+          fs.writeFileSync(md, renderMarkdown(data));
+          o.out(`posted: no (${e.message})`);
+          o.out(`open: ${html}`);
+        }
+        return 0;
+      }
       case "past": {
         const weeks = Number(arg) > 0 ? Number(arg) : 8;
-        o.out(JSON.stringify(pastPicks(o.picksDir, { now: o.now, weeks }), null, 2));
+        o.out(JSON.stringify(await recentPicks(weeks), null, 2));
         return 0;
       }
       default:

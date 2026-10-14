@@ -955,3 +955,34 @@ button { font-family: inherit; cursor: pointer; }
 .waiting__text b { font-family: var(--font-display); font-size: 19px; font-weight: 500; letter-spacing: .004em; display: block; }
 .waiting__text p { color: var(--color-muted); font-size: 13.5px; margin-top: 4px; }
 .waiting .btn--primary { flex: 0 0 auto; }
+
+/* ---- This week (picks home) ---- */
+.week { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5) 0; }
+.week__eyebrow { margin: 0; color: var(--muted); font-size: 13px; }
+.week__focus { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 28px; line-height: 1.15; }
+.week__points { margin: 0; padding-left: var(--space-5); color: var(--muted); }
+.week__notice { margin: 0; color: var(--muted); }
+.week__picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--space-4); margin-top: var(--space-3); }
+.pick { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.pick--skeleton { min-height: 360px; background: var(--secondary); }
+.pick__thumb img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: var(--secondary); }
+.pick__body { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); flex: 1; }
+.pick__body p { margin: 0; }
+.pick__row { display: flex; align-items: center; gap: var(--space-2); color: var(--muted); font-size: 13px; }
+.pick__dot { width: 8px; height: 8px; border-radius: var(--radius-pill); }
+.pick__title { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 19px; line-height: 1.25; }
+.pick__title a, .pick__chip { color: inherit; text-decoration: none; }
+.pick__title a:hover { text-decoration: underline; }
+.pick__meta { color: var(--muted); font-size: 13px; }
+.pick__faint { color: var(--faint); }
+.pick__label { display: block; color: var(--muted); font-size: 13px; }
+.pick__chip { align-self: flex-start; padding: 2px var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-pill); font-size: 13px; }
+.pick__gets { margin: 0; padding-left: var(--space-5); }
+.pick__verdicts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-top: auto; padding-top: var(--space-2); }
+.pick__verdict { justify-content: center; padding-inline: var(--space-2); white-space: nowrap; }
+.week__close { border-top: 1px solid var(--border); padding-top: var(--space-4); margin-top: var(--space-3); }
+.week__close summary { cursor: pointer; font-family: var(--font-display); font-size: 19px; }
+.week__close ul { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.week__close-title { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.week__reason { display: block; color: var(--muted); font-size: 13px; }
+.topbar__tabs { display: flex; gap: var(--space-1); margin-left: var(--space-4); }

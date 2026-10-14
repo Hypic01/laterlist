@@ -667,6 +667,80 @@ export function createDb(q) {
       await q.query("UPDATE users SET free_used = free_used + $2 WHERE id = $1", [userId, n]);
     },
 
+    // ---- weekly picks (2026-10-12) ----
+    async libraryHas(userId, ids) {
+      const { rows } = await q.query(
+        "SELECT video_id FROM videos WHERE user_id = $1 AND video_id = ANY($2::text[])",
+        [userId, ids]
+      );
+      return new Set(rows.map((r) => r.video_id));
+    },
+
+    async videosByIds(userId, ids) {
+      const { rows } = await q.query(
+        `SELECT video_id, title, channel, duration_seconds, category, status
+           FROM videos WHERE user_id = $1 AND video_id = ANY($2::text[])`,
+        [userId, ids]
+      );
+      return Object.fromEntries(rows.map(({ video_id, ...v }) => [video_id, v]));
+    },
+
+    async upsertPickSet(userId, week, payload) {
+      await q.query(
+        `INSERT INTO pick_sets (user_id, week, payload) VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, week) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()`,
+        [userId, week, JSON.stringify(payload)]
+      );
+    },
+
+    async pickSet(userId, week) {
+      const { rows } = await q.query(
+        "SELECT payload FROM pick_sets WHERE user_id = $1 AND week = $2",
+        [userId, week]
+      );
+      return rows[0] || null;
+    },
+
+    async latestPickSet(userId) {
+      const { rows } = await q.query(
+        `SELECT to_char(week, 'YYYY-MM-DD') AS week, payload, updated_at
+           FROM pick_sets WHERE user_id = $1 ORDER BY week DESC LIMIT 1`,
+        [userId]
+      );
+      return rows[0] || null;
+    },
+
+    async pickVerdicts(userId, week) {
+      const { rows } = await q.query(
+        "SELECT video_id, verdict FROM pick_verdicts WHERE user_id = $1 AND week = $2",
+        [userId, week]
+      );
+      return Object.fromEntries(rows.map((r) => [r.video_id, r.verdict]));
+    },
+
+    async setPickVerdict(userId, week, videoId, verdict) {
+      await q.query(
+        `INSERT INTO pick_verdicts (user_id, week, video_id, verdict) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (user_id, week, video_id) DO UPDATE SET verdict = EXCLUDED.verdict, decided_at = now()`,
+        [userId, week, videoId, verdict]
+      );
+    },
+
+    async pickHistory(userId, weeks) {
+      const { rows: sets } = await q.query(
+        `SELECT to_char(week, 'YYYY-MM-DD') AS week, payload
+           FROM pick_sets WHERE user_id = $1 ORDER BY week DESC LIMIT $2`,
+        [userId, weeks]
+      );
+      const { rows: verdicts } = await q.query(
+        "SELECT to_char(week, 'YYYY-MM-DD') AS week, video_id, verdict FROM pick_verdicts WHERE user_id = $1",
+        [userId]
+      );
+      const byKey = new Map(verdicts.map((v) => [`${v.week}|${v.video_id}`, v.verdict]));
+      return sets.flatMap((s) => (s.payload.picks || []).map((p) => ({
+        week: s.week, id: p.id, title: p.title, verdict: byKey.get(`${s.week}|${p.id}`) || null,
+      })));
+    },
     // ---- config ----
     async getConfig(key) {
       const { rows } = await q.query("SELECT value FROM app_config WHERE key = $1", [key]);

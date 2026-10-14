@@ -33,7 +33,14 @@ function tmpFile(contents) {
 describe("loadPicksEnv", () => {
   it("reads both keys and strips quotes", () => {
     const file = tmpFile('PICKS_DATABASE_URL="postgresql://r.ref:secretpw@host:6543/postgres"\nPICKS_EMAIL=me@test.dev\n');
-    expect(loadPicksEnv(file)).toEqual({ url: "postgresql://r.ref:secretpw@host:6543/postgres", email: "me@test.dev" });
+    expect(loadPicksEnv(file)).toEqual({ url: "postgresql://r.ref:secretpw@host:6543/postgres", email: "me@test.dev", apiToken: "", appUrl: "https://laterlist-app.vercel.app" });
+  });
+
+  it("reads the optional API token and app URL", () => {
+    const file = tmpFile("PICKS_DATABASE_URL=postgresql://r:p@h:6543/postgres\nPICKS_EMAIL=me@test.dev\nPICKS_API_TOKEN=wll_k\nPICKS_APP_URL=https://laterlist.test/\n");
+    expect(loadPicksEnv(file)).toMatchObject({ apiToken: "wll_k", appUrl: "https://laterlist.test" });
+    const bare = tmpFile("PICKS_DATABASE_URL=postgresql://r:p@h:6543/postgres\nPICKS_EMAIL=me@test.dev\n");
+    expect(loadPicksEnv(bare)).toMatchObject({ apiToken: "", appUrl: "https://laterlist-app.vercel.app" });
   });
 
   it("missing file gives an actionable PicksEnvError", () => {

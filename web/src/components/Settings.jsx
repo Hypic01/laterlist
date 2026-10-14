@@ -53,14 +53,14 @@ export default function Settings({
     await signOut();
   };
 
-  const generateBridgeToken = async () => {
+  const generateToken = async (scope, label, toastText) => {
     setTokenBusy("create");
     try {
-      const created = await api.createToken({ scope: "bridge", label: "Vault bridge" });
+      const created = await api.createToken({ scope, label });
       const { token, ...metadata } = created;
       setGeneratedToken({ id: metadata.id, value: token });
       setTokens((current) => [metadata, ...current.filter((item) => item.id !== metadata.id)]);
-      onToast("Bridge token generated.");
+      onToast(toastText);
     } catch (e) {
       onToast(e.message);
     } finally {
@@ -160,12 +160,18 @@ export default function Settings({
             <h3>Connected apps</h3>
             <p className="settings__hint">Review apps that can send videos to your library.</p>
           </div>
-          {me.isAdmin ? (
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
             <button className="btn btn--ghost" disabled={tokenBusy !== null || generatedToken !== null}
-              onClick={generateBridgeToken}>
-              Generate bridge token
+              onClick={() => generateToken("picks", "Mac picks", "Picks key created. Copy it now.")}>
+              Create picks key
             </button>
-          ) : null}
+            {me.isAdmin ? (
+              <button className="btn btn--ghost" disabled={tokenBusy !== null || generatedToken !== null}
+                onClick={() => generateToken("bridge", "Vault bridge", "Bridge token generated.")}>
+                Generate bridge token
+              </button>
+            ) : null}
+          </div>
         </div>
 
         <ExtensionConnection extension={extension} onConnect={connectExtension}
@@ -190,12 +196,12 @@ export default function Settings({
 
         {generatedToken ? (
           <div className="settings__token-reveal">
-            <p id="bridge-token-warning" role="status">Copy this token now. It will not be shown again.</p>
+            <p id="bridge-token-warning" role="status">Copy this key now. It will not be shown again.</p>
             <div className="settings__secret-row">
               <input value={generatedToken.value} readOnly spellCheck="false" autoComplete="off"
-                aria-label="Generated bridge token" aria-describedby="bridge-token-warning"
+                aria-label="Generated key" aria-describedby="bridge-token-warning"
                 onFocus={(event) => event.currentTarget.select()} />
-              <button className="btn btn--primary" onClick={copyGeneratedToken}>Copy token</button>
+              <button className="btn btn--primary" onClick={copyGeneratedToken}>Copy key</button>
               <button className="btn btn--ghost" onClick={() => setGeneratedToken(null)}>Done</button>
             </div>
           </div>
@@ -212,7 +218,7 @@ export default function Settings({
                 <div className="settings__token-copy">
                   <div className="settings__token-title">
                     <strong>{token.label || "Connected app"}</strong>
-                    <span>{token.scope === "bridge" ? "Bridge" : "Imports"}</span>
+                    <span>{{ bridge: "Bridge", picks: "Picks", imports: "Imports" }[token.scope] || "Imports"}</span>
                   </div>
                   <p>
                     Created {formatDate(token.created_at)}. {token.last_used_at

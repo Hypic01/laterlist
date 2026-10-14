@@ -43,6 +43,105 @@ beforeEach(async () => {
 const work = () => path.join(root, "work", "2026-10-12");
 
 describe("watch-picks CLI", () => {
+  function withApi(responses) {
+    const calls = [];
+    fs.writeFileSync(deps.envPath,
+      "PICKS_DATABASE_URL=postgresql://r:pw@localhost:5432/db\nPICKS_EMAIL=u1@test.dev\nPICKS_API_TOKEN=wll_k\nPICKS_APP_URL=https://laterlist.test\n");
+    deps.fetchImpl = async (url, opts = {}) => {
+      calls.push({ url, opts });
+      const r = responses.shift() || { status: 200, body: {} };
+      return { ok: r.status < 400, status: r.status, json: async () => r.body };
+    };
+    return calls;
+  }
+
+  const picksJson = () => {
+    const json = path.join(root, "picks.json");
+    fs.writeFileSync(json, JSON.stringify({
+      week: "2026-10-12", focus: "Case studies", focusPoints: [],
+      picks: [{ id: vid(1), title: "One", row: "learn", why: "Because", gets: [] }], closeButNo: [],
+    }));
+    return json;
+  };
+
+  it("post sends the picks to Laterlist and archives a note", async () => {
+    const calls = withApi([{ status: 200, body: { week: "2026-10-12", picks: 1 } }]);
+    expect(await main(["post", picksJson()], deps)).toBe(0);
+    expect(calls[0].url).toBe("https://laterlist.test/api/picks");
+    expect(calls[0].opts.method).toBe("POST");
+    expect(calls[0].opts.headers["x-import-token"]).toBe("wll_k");
+    expect(JSON.parse(calls[0].opts.body).week).toBe("2026-10-12");
+    expect(out).toContain("posted: yes (1 picks for 2026-10-12)");
+    expect(out).toContain("open: https://laterlist.test/app");
+    const md = fs.readFileSync(path.join(deps.picksDir, "2026-10-12.md"), "utf8");
+    expect(md).toContain("Verdict: tap it in Laterlist");
+    expect(fs.existsSync(path.join(deps.picksDir, "2026-10-12.html"))).toBe(false);
+    expect(out.join("\n")).not.toContain("wll_k");
+  });
+
+  it("post failure falls back to the local page and says why", async () => {
+    withApi([{ status: 401, body: { error: "invalid import token" } }]);
+    expect(await main(["post", picksJson()], deps)).toBe(0);
+    expect(out).toContain("posted: no (Laterlist said 401: invalid import token)");
+    const html = path.join(deps.picksDir, "2026-10-12.html");
+    expect(fs.existsSync(html)).toBe(true);
+    expect(out).toContain(`open: ${html}`);
+  });
+
+  it("post without a token falls back without calling the network", async () => {
+    let called = false;
+    deps.fetchImpl = async () => { called = true; return { ok: true, status: 200, json: async () => ({}) }; };
+    expect(await main(["post", picksJson()], deps)).toBe(0);
+    expect(called).toBe(false);
+    expect(out.join("\n")).toMatch(/posted: no \(PICKS_API_TOKEN is not set/);
+  });
+
+  it("post rejects an invalid picks.json with exit 2", async () => {
+    const json = path.join(root, "bad.json");
+    fs.writeFileSync(json, JSON.stringify({ week: "2026-10-12", focus: "" }));
+    expect(await main(["post", json], deps)).toBe(2);
+  });
+
+  it("past reads history from the API when a token is set", async () => {
+    const calls = withApi([{ status: 200, body: [{ week: "2026-10-12", id: vid(1), title: "One", verdict: "worth" }] }]);
+    expect(await main(["past", "4"], deps)).toBe(0);
+    expect(calls[0].url).toBe("https://laterlist.test/api/picks/history?weeks=4");
+    expect(JSON.parse(out[0])).toEqual([{ week: "2026-10-12", id: vid(1), title: "One", verdict: "worth" }]);
+  });
+
+  it("list still excludes vault-note picks when the API history is empty", async () => {
+    await seedVideo(pg, { id: vid(1), title: "Keep" });
+    await seedVideo(pg, { id: vid(2), title: "Picked before the switch" });
+    fs.mkdirSync(deps.picksDir, { recursive: true });
+    fs.writeFileSync(path.join(deps.picksDir, "2026-10-05.md"),
+      `---\nweek: 2026-10-05\n---\n## 1. [Picked before the switch](https://www.youtube.com/watch?v=${vid(2)})\nVerdict: worth it\n`);
+    withApi([{ status: 200, body: [] }]);
+    expect(await main(["list"], deps)).toBe(0);
+    const lines = fs.readFileSync(path.join(work(), "list.tsv"), "utf8").split("\n").filter(Boolean);
+    expect(lines.slice(1).map((l) => l.split("\t")[0])).toEqual([vid(1)]);
+  });
+
+  it("past merges API and vault history, API verdict wins", async () => {
+    fs.mkdirSync(deps.picksDir, { recursive: true });
+    fs.writeFileSync(path.join(deps.picksDir, "2026-10-05.md"),
+      `---\nweek: 2026-10-05\n---\n## 1. [Old](https://www.youtube.com/watch?v=${vid(3)})\nVerdict: not\n## 2. [Both](https://www.youtube.com/watch?v=${vid(4)})\nVerdict: worth it | not | skipped\n`);
+    withApi([{ status: 200, body: [{ week: "2026-10-05", id: vid(4), title: "Both", verdict: "worth" }] }]);
+    expect(await main(["past"], deps)).toBe(0);
+    const rows = JSON.parse(out[0]);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.id === vid(4)).verdict).toBe("worth");
+    expect(rows.find((r) => r.id === vid(3)).verdict).toBe("not");
+  });
+
+  it("list excludes recent picks from API history", async () => {
+    await seedVideo(pg, { id: vid(1), title: "Keep" });
+    await seedVideo(pg, { id: vid(2), title: "Picked in the app" });
+    withApi([{ status: 200, body: [{ week: "2026-10-05", id: vid(2), title: "Picked in the app", verdict: null }] }]);
+    expect(await main(["list"], deps)).toBe(0);
+    const lines = fs.readFileSync(path.join(work(), "list.tsv"), "utf8").split("\n").filter(Boolean);
+    expect(lines.slice(1).map((l) => l.split("\t")[0])).toEqual([vid(1)]);
+  });
+
   it("unknown command prints usage and exits 2", async () => {
     expect(await main(["nope"], deps)).toBe(2);
     expect(err[0]).toMatch(/^usage:/);
