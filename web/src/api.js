@@ -49,3 +49,5 @@ export const saveTranscript = (id, payload) => post(`${videoUrl(id)}/transcript`
 export const fetchTranscriptFromServer = (id) => post(`${videoUrl(id)}/transcript/fetch`);
 export const summarizeVideo = (id) => post(`${videoUrl(id)}/summary`);
 export const fetchSnippet = () => fetch("/collector.js").then((r) => (r.ok ? r.text() : Promise.reject(new Error("snippet unavailable"))));
+export const getCurrentPicks = () => call("/api/picks/current");
+export const setPickVerdict = (week, videoId, verdict) => post(`/api/picks/${week}/verdict`, { videoId, verdict });

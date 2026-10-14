@@ -13,16 +13,18 @@ import CleanupDeck from "./CleanupDeck.jsx";
 import PhoneSettings from "./PhoneSettings.jsx";
 import VideoDetail from "../components/VideoDetail.jsx";
 import Onboarding from "../components/Onboarding.jsx";
-import { BrandMark, CardsIcon, SettingsIcon } from "../components/icons.jsx";
+import { BrandMark, CardsIcon, SettingsIcon, SparklesIcon } from "../components/icons.jsx";
+import ThisWeek from "../components/ThisWeek.jsx";
 import "./phone.css";
 
 const TOAST_TEXT = { dismiss: "Removed", done: "Marked watched", keep: "Kept" };
-const TAB_SCREENS = new Set(["board", "row", "settings"]);
-const ROOT = [{ name: "board" }];
+const TAB_SCREENS = new Set(["week", "board", "row", "settings"]);
+// Laterlist opens on This week (2026-10-12); the board is the Library tab.
+const ROOT = [{ name: "week" }];
 
 export default function PhoneApp({ me, board, job, reload }) {
   // Screens form a stack. A "sheet" entry sits on top of the screen it covers.
-  const [stack, setStack] = useState([{ name: "board" }]);
+  const [stack, setStack] = useState(ROOT);
   const [overlay, setOverlay] = useState({});
   const [toast, setToast] = useState(null); // { text, key }
   const [log, setLog] = useState([]);
@@ -166,7 +168,16 @@ export default function PhoneApp({ me, board, job, reload }) {
   const retakeQuiz = () => { api.saveTaste({ interests: [], note: "" }).catch(() => {}); push({ name: "quiz" }); };
 
   let body;
-  if (screen.name === "board") {
+  if (screen.name === "week") {
+    body = (
+      <ThisWeek onOpenLibrary={() => switchTab({ name: "board" })}
+        onOpenVideo={(id) => {
+          const v = findVideo(view, id);
+          if (v) openSheet(v); else flashToast("That video isn't in your library any more.");
+        }}
+        onLibraryChanged={reload} onToast={flashToast} />
+    );
+  } else if (screen.name === "board") {
     body = isFirstRun(me.counts)
       ? <PhoneSetupNote host={globalThis.location?.host ?? ""} />
       : (
@@ -222,6 +233,7 @@ export default function PhoneApp({ me, board, job, reload }) {
 
   const tabsVisible = TAB_SCREENS.has(screen.name);
   const onSettings = screen.name === "settings";
+  const onWeek = screen.name === "week";
 
   return (
     <div className={`ph-app${tabsVisible ? " has-tabs" : ""}`}>
@@ -236,9 +248,13 @@ export default function PhoneApp({ me, board, job, reload }) {
 
       {tabsVisible ? (
         <nav className="ph-tabs" aria-label="Main">
-          <button className={`ph-tab${onSettings ? "" : " is-on"}`} aria-current={onSettings ? undefined : "page"}
+          <button className={`ph-tab${onWeek ? " is-on" : ""}`} aria-current={onWeek ? "page" : undefined}
+            onClick={() => switchTab({ name: "week" })}>
+            <SparklesIcon size={20} />This week
+          </button>
+          <button className={`ph-tab${onSettings || onWeek ? "" : " is-on"}`} aria-current={onSettings || onWeek ? undefined : "page"}
             onClick={() => switchTab({ name: "board" })}>
-            <BrandMark size={20} />Board
+            <BrandMark size={20} />Library
           </button>
           <button className="ph-tab" onClick={() => { resetSession(); switchTab(deckEntry(null)); }}>
             <CardsIcon size={20} />Clean up

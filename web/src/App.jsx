@@ -12,6 +12,7 @@ import JobProgress from "./components/JobProgress.jsx";
 import PrivateScreen from "./components/PrivateScreen.jsx";
 import WaitingBand from "./components/WaitingBand.jsx";
 import Settings from "./components/Settings.jsx";
+import ThisWeek from "./components/ThisWeek.jsx";
 import VideoDetail from "./components/VideoDetail.jsx";
 import SetupScreen from "./components/SetupScreen.jsx";
 import {
@@ -71,7 +72,7 @@ export default function App() {
   const [privateAccess, setPrivateAccess] = useState(false);
   const [board, setBoard] = useState(null);
   const [job, setJob] = useState(null);
-  const [view, setView] = useState("board");
+  const [view, setView] = useState("week");
   // Read ?signin=1 once and strip it right away, signed in or not, so a later
   // sign-out reload can't bounce the user straight back to Google.
   const [signinRequested] = useState(
@@ -560,6 +561,12 @@ export default function App() {
   };
   // Intent carries a card-level action into the detail view: "play" starts the
   // player and "tldr" starts the summary.
+  const openVideoById = (id) => {
+    const video = Object.values(board || {}).flat().find((v) => v.id === id);
+    if (video) openDetail(video);
+    else { setView("board"); showToast("That video isn't in your library any more."); }
+  };
+
   const openDetail = (video, intent = null) => {
     setFocusIntent(intent);
     setFocus(video);
@@ -603,10 +610,18 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <button className="brand" onClick={() => { setFocus(null); setView("board"); }} aria-label="Back to the board">
+        <button className="brand" onClick={() => { setFocus(null); setView("week"); }} aria-label="This week">
           <span className="brand__mark"><BrandMark size={18} /></span>
           <h1>laterlist</h1>
         </button>
+        <nav className="topbar__tabs" aria-label="Main">
+          <button className={`btn ${view === "week" && !focus ? "btn--primary" : "btn--ghost"}`}
+            aria-current={view === "week" && !focus ? "page" : undefined}
+            onClick={() => { setFocus(null); setView("week"); }}>This week</button>
+          <button className={`btn ${view !== "week" && view !== "settings" && !focus ? "btn--primary" : "btn--ghost"}`}
+            aria-current={view !== "week" && view !== "settings" && !focus ? "page" : undefined}
+            onClick={() => { setFocus(null); setView("board"); }}>Library</button>
+        </nav>
         <div className="topbar__spacer" />
         {/* One way in: Sync once the extension is connected (manual import lives
             in Settings), Import until then. */}
@@ -643,6 +658,9 @@ export default function App() {
             onBack={() => { setFocus(null); setFocusIntent(null); }} onMove={move}
             onDismiss={dismiss} onDone={done}
             onToast={showToast} />
+        ) : view === "week" ? (
+          <ThisWeek onOpenLibrary={() => setView("board")} onOpenVideo={openVideoById}
+            onLibraryChanged={reload} onToast={showToast} />
         ) : view === "settings" ? (
           <Settings me={me} onBack={() => setView("board")} onToast={showToast}
             onRetakeQuiz={() => { api.saveTaste({ interests: [], note: "" }); setView("quiz"); }}

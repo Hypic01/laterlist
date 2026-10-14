@@ -182,3 +182,8 @@ html.is-phone, html.is-phone body { overscroll-behavior-y: none; }
 .ph-detail .topbar__spacer { display: none; }
 .ph-settings__sync { margin: var(--space-4) var(--space-1) 0; }
 .ph-settings .catview__header .btn { display: none; }
+
+/* This week on phones */
+.ph-app .week { padding: var(--space-4) var(--space-4) var(--space-6); }
+.ph-app .week__focus { font-size: 26px; }
+.ph-app .pick__verdict { min-height: 44px; }
