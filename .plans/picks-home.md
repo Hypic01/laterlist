@@ -61,7 +61,7 @@
 - Produces: `server/picks.js` exports `PicksDataError`, `validatePicks(data)` (moved verbatim from `render.mjs`), `VERDICTS = ["worth","not","skipped"]`, `pickIds(set)`.
 - `db` gains `libraryHas(userId, ids) -> Set`, `videosByIds(userId, ids) -> { [id]: {title, channel, duration_seconds, category, status} }`, `upsertPickSet(userId, week, payload)`, `latestPickSet(userId) -> { week, payload, updated_at } | null`, `pickVerdicts(userId, week) -> { [videoId]: verdict }`, `setPickVerdict(userId, week, videoId, verdict)`, `pickHistory(userId, weeks) -> [{ week, id, title, verdict }]` (newest week first, the N most recent sets).
 
-- [ ] **Step 1: Write the failing tests.** Create `tests/picks-api.test.js`:
+- [x] **Step 1: Write the failing tests.** Create `tests/picks-api.test.js`:
 
 ```js
 import { describe, it, expect, beforeEach } from "vitest";
@@ -241,9 +241,9 @@ describe("picks routes", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure.** `npx vitest run tests/picks-api.test.js` → FAIL (404s / missing tables).
+- [x] **Step 2: Run to verify failure.** `npx vitest run tests/picks-api.test.js` → FAIL (404s / missing tables).
 
-- [ ] **Step 3: Migration.** Append to `MIGRATIONS` in `server/migrations.js`:
+- [x] **Step 3: Migration.** Append to `MIGRATIONS` in `server/migrations.js`:
 
 ```js
   {
@@ -267,11 +267,15 @@ describe("picks routes", () => {
       );
       ALTER TABLE pick_sets ENABLE ROW LEVEL SECURITY;
       ALTER TABLE pick_verdicts ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE api_tokens DROP CONSTRAINT IF EXISTS api_tokens_scope_check;
+      ALTER TABLE api_tokens ADD CONSTRAINT api_tokens_scope_check CHECK (scope IN ('imports', 'bridge', 'picks'));
     `,
   },
 ```
 
-- [ ] **Step 4: Validator.** Create `server/picks.js`: move `PicksDataError` and `validatePicks` (with its helpers `ID_RE`, `str`, `int`) verbatim from `scripts/watch-picks/render.mjs`, plus:
+(Claude, review: the two api_tokens lines were added after the tests showed the old CHECK only allowed 'imports' and 'bridge'.)
+
+- [x] **Step 4: Validator.** Create `server/picks.js`: move `PicksDataError` and `validatePicks` (with its helpers `ID_RE`, `str`, `int`) verbatim from `scripts/watch-picks/render.mjs`, plus:
 
 ```js
 export const VERDICTS = ["worth", "not", "skipped"];
@@ -283,7 +287,7 @@ export function pickIds(set) {
 
 In `scripts/watch-picks/render.mjs`, delete the moved code and add `export { PicksDataError, validatePicks } from "../../server/picks.js";`. Remove helpers that become unused there. `tests/watch-picks-render.test.js` must pass unchanged.
 
-- [ ] **Step 5: DB methods.** Add to the object returned by `createDb` in `server/db.js`:
+- [x] **Step 5: DB methods.** Add to the object returned by `createDb` in `server/db.js`:
 
 ```js
     // ---- weekly picks (2026-10-12) ----
@@ -354,7 +358,7 @@ In `scripts/watch-picks/render.mjs`, delete the moved code and add `export { Pic
     },
 ```
 
-- [ ] **Step 6: Routes.** In `server/app.js`: import `{ PicksDataError, validatePicks, VERDICTS, pickIds }` from `./picks.js`; change the token scope list to `["imports", "bridge", "picks"]`; then add, after the `/api/videos/done` route:
+- [x] **Step 6: Routes.** In `server/app.js`: import `{ PicksDataError, validatePicks, VERDICTS, pickIds }` from `./picks.js`; change the token scope list to `["imports", "bridge", "picks"]`; then add, after the `/api/videos/done` route:
 
 ```js
   // ---- weekly picks: the Mac run posts, the app shows (2026-10-12) ----
@@ -435,7 +439,7 @@ In `scripts/watch-picks/render.mjs`, delete the moved code and add `export { Pic
 - `renderMarkdown(data, { posted = false } = {})`: when `posted`, each verdict line is `Verdict: tap it in Laterlist`. `parsePicksNote` treats that line as `verdict: null`.
 - `main` deps gain `fetchImpl` (default `globalThis.fetch`).
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
 
 In `tests/watch-picks-db.test.js` add:
 
@@ -566,9 +570,9 @@ In `tests/watch-picks-cli.test.js`, add a helper and tests (inside the existing 
 
 The existing `past` and `list` tests (vault-note based) must keep passing: with no `PICKS_API_TOKEN` the CLI falls back to the vault notes.
 
-- [ ] **Step 2: Run to verify failure.** `npx vitest run tests/watch-picks-cli.test.js tests/watch-picks-render.test.js tests/watch-picks-db.test.js` → FAIL.
+- [x] **Step 2: Run to verify failure.** `npx vitest run tests/watch-picks-cli.test.js tests/watch-picks-render.test.js tests/watch-picks-db.test.js` → FAIL.
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
 
 `scripts/watch-picks/db.mjs` `loadPicksEnv`: after computing `email`, return
 
@@ -682,7 +686,7 @@ export async function fetchHistory({ appUrl, apiToken, weeks = 8, fetchImpl = gl
       }
 ```
 
-- [ ] **Step 4: Run.** The three test files → PASS; then `npm test`.
+- [x] **Step 4: Run.** The three test files → PASS; then `npm test`.
 - [ ] **Step 5: Commit.** `git add scripts/watch-picks scripts/watch-picks.mjs tests/watch-picks-*.test.js && git commit -m "feat(watch-picks): post picks to Laterlist, read history from the API"`
 
 **Codex stops here and reports:** commit hashes (or per-task file lists if git is blocked), test totals, EPERM count, deviations.
@@ -1053,3 +1057,10 @@ read -s "TK?Paste the picks key: " && printf 'PICKS_API_TOKEN=%s\n' "$TK" >> ~/.
 2. Dev: posting a sample set opens `/app` on This week with 3 cards; verdicts persist after reload; Worth it moves the video out of Library; stale banner works; no console errors; 375 px has no sideways scroll; phone tab bar starts with This week.
 3. Production: migration 010 applied with RLS; Joon's picks key saved; a manual run posts and Laterlist opens on This week.
 4. `CLI past` returns the verdicts Joon tapped.
+
+## Deviations
+
+- Task 2 Step 5: The prescribed commit was blocked by the same protected worktree index lock (`Operation not permitted`). Task 2 remains uncommitted.
+- Task 2 `npm test`: all 54 targeted CLI, render, and DB tests pass. The full suite has 416 passes and 68 listener-dependent failures (`listen EPERM` and the resulting supertest null-port errors).
+- Task 1 Step 8: The prescribed commit was blocked because git could not create the protected worktree index lock (`Operation not permitted`). No git metadata workaround was attempted; changes remain uncommitted.
+- Task 1 Step 7: `tests/picks-api.test.js` is kept exactly as planned, but its 13 supertest cases cannot reach route assertions here because this sandbox rejects `listen` with EPERM. `tests/watch-picks-render.test.js` passes, and the full suite failures are limited to listener-dependent tests. Claude must run the API cases outside this sandbox.
