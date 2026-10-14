@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 import { CATEGORIES } from "./db.js";
 import { hashToken } from "./auth.js";
 import { estimateCostUsd } from "./config.js";
-import { PicksDataError, validatePicks, VERDICTS, pickIds } from "./picks.js";
+import { PicksDataError, validatePicks, VERDICTS, pickIds, isRealDate } from "./picks.js";
 
 const MAX_TRANSCRIPT_BYTES = 1024 * 1024;
 const MAX_TRANSCRIPT_CHARS = 250000;
@@ -432,7 +432,8 @@ export function createApp({
         week: row.week,
         updatedAt: row.updated_at,
         picks: p.picks.map((x) => ({ ...x, video: videos[x.id] || null, verdict: verdicts[x.id] || null })),
-        closeButNo: p.closeButNo.map((x) => ({ ...x, inLibrary: Boolean(videos[x.id]) })),
+        // Openable only while it is still on the board (scanned), where the app looks it up.
+        closeButNo: p.closeButNo.map((x) => ({ ...x, inLibrary: videos[x.id]?.status === "scanned" })),
       },
     });
   });
@@ -440,9 +441,14 @@ export function createApp({
   app.post("/api/picks/:week/verdict", auth.required, async (req, res) => {
     const { week } = req.params;
     const { videoId, verdict } = req.body || {};
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) return res.status(400).json({ error: "bad week" });
+    if (!isRealDate(week)) return res.status(400).json({ error: "bad week" });
     if (!VERDICTS.includes(verdict)) return res.status(400).json({ error: "verdict must be worth, not or skipped" });
     if (!/^[A-Za-z0-9_-]{11}$/.test(String(videoId || ""))) return res.status(400).json({ error: "bad video id" });
+    // Only a current pick of that week can get a verdict (and be marked done).
+    const set = await db.pickSet(req.user.id, week);
+    if (!set || !(set.payload.picks || []).some((x) => x.id === videoId)) {
+      return res.status(404).json({ error: "that video is not one of this week's picks" });
+    }
     await db.setPickVerdict(req.user.id, week, videoId, verdict);
     let marked = 0;
     if (verdict !== "skipped") {

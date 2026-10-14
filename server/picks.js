@@ -1,3 +1,10 @@
+export function isRealDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
+
 export class PicksDataError extends Error {}
 
 const ID_RE = /^[A-Za-z0-9_-]{11}$/;
@@ -6,7 +13,7 @@ const int = (v) => (Number.isInteger(v) && v >= 0 ? v : null);
 
 export function validatePicks(data) {
   if (!data || typeof data !== "object") throw new PicksDataError("picks.json is not an object");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data.week)) throw new PicksDataError("week must be YYYY-MM-DD");
+  if (!isRealDate(data.week)) throw new PicksDataError("week must be a real YYYY-MM-DD date");
   const week = data.week;
   const error = str(data.error, 300);
   if (error) return { week, error, focus: "", focusPoints: [], notice: "", picks: [], closeButNo: [] };

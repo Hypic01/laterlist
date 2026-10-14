@@ -139,6 +139,26 @@ describe("picks routes", () => {
     expect(v.rows[0].status).toBe("done");
   });
 
+  it("refuses a verdict for a video that is not one of that week's picks", async () => {
+    await postAsMac(setFor("2026-10-12", [1, 2, 3, 4])).expect(200);
+    await asJoon(request(app).post("/api/picks/2026-10-12/verdict")).send({ videoId: vid(4), verdict: "worth" }).expect(404);
+    await asJoon(request(app).post("/api/picks/2026-10-05/verdict")).send({ videoId: vid(1), verdict: "worth" }).expect(404);
+    const v = await pg.query("SELECT status FROM videos WHERE user_id = $1 AND video_id = $2", [uid, vid(4)]);
+    expect(v.rows[0].status).toBe("scanned");
+  });
+
+  it("rejects impossible dates with 400, not a server error", async () => {
+    await postAsMac(setFor("2026-02-30", [1, 2, 3])).expect(400);
+    await asJoon(request(app).post("/api/picks/2026-02-30/verdict")).send({ videoId: vid(1), verdict: "worth" }).expect(400);
+  });
+
+  it("close-but-no videos already done are not openable", async () => {
+    await postAsMac(setFor("2026-10-12", [1, 2, 3, 4])).expect(200);
+    await pg.query("UPDATE videos SET status = 'done' WHERE user_id = $1 AND video_id = $2", [uid, vid(4)]);
+    const { body } = await asJoon(request(app).get("/api/picks/current")).expect(200);
+    expect(body.set.closeButNo[0].inLibrary).toBe(false);
+  });
+
   it("validates verdict input", async () => {
     await asJoon(request(app).post("/api/picks/2026-10-12/verdict")).send({ videoId: vid(1), verdict: "meh" }).expect(400);
     await asJoon(request(app).post("/api/picks/not-a-week/verdict")).send({ videoId: vid(1), verdict: "worth" }).expect(400);

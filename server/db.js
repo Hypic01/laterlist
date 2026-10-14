@@ -693,6 +693,14 @@ export function createDb(q) {
       );
     },
 
+    async pickSet(userId, week) {
+      const { rows } = await q.query(
+        "SELECT payload FROM pick_sets WHERE user_id = $1 AND week = $2",
+        [userId, week]
+      );
+      return rows[0] || null;
+    },
+
     async latestPickSet(userId) {
       const { rows } = await q.query(
         `SELECT to_char(week, 'YYYY-MM-DD') AS week, payload, updated_at
