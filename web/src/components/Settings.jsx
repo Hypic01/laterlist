@@ -5,6 +5,9 @@ import { ArrowLeftIcon, LogOutIcon, SunIcon, MoonIcon } from "./icons.jsx";
 import ExtensionConnection from "./ExtensionConnection.jsx";
 import CleanupChecklist from "./CleanupChecklist.jsx";
 
+const DATE_FORMAT = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
+const formatDate = (value) => DATE_FORMAT.format(new Date(value));
+
 export default function Settings({
   me,
   onBack,
