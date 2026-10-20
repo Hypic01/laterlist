@@ -985,4 +985,33 @@ button { font-family: inherit; cursor: pointer; }
 .week__close ul { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .week__close-title { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .week__reason { display: block; color: var(--muted); font-size: 13px; }
+.goal { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-5); border-top: 1px solid var(--border); }
+.goal__header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); }
+.goal__header > div { min-width: 0; }
+.goal__name { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 24px; line-height: 1.2; overflow-wrap: anywhere; }
+.goal__need, .goal__empty { margin: var(--space-2) 0 0; color: var(--muted); font-size: 13px; }
+.goal__count { flex: 0 0 auto; color: var(--muted); font-family: var(--font-mono); font-size: 13px; }
+.goal .week__picks { margin-top: 0; }
+.goalPick__source { display: inline-flex; align-items: center; padding: var(--space-1) var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-pill); color: var(--muted); font-family: var(--font-mono); font-size: 12px; }
+.goalPick__author { color: var(--muted); font-size: 13px; }
+.goalPick__action { font-weight: 600; }
+.goalPick .pick__title { overflow-wrap: anywhere; }
+.covers { border-top: 1px solid var(--border); padding: var(--space-3) var(--space-4); }
+.covers summary { cursor: pointer; font-family: var(--font-mono); font-size: 13px; }
+.covers__content { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-3); }
+.covers__list { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; }
+.covers__row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-width: 0; }
+.covers__row--gone .covers__title { color: var(--faint); text-decoration: line-through; }
+.covers__title { border: 0; background: none; color: var(--foreground); font: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; min-width: 0; }
+.covers__leave { flex: 0 0 auto; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--secondary); color: var(--foreground); padding: var(--space-1) var(--space-2); cursor: pointer; }
+.covers__leave[aria-pressed="true"] { background: var(--foreground); color: var(--background); }
+.covers__remove { align-self: flex-start; }
+.covers__undo { display: flex; align-items: center; gap: var(--space-2); color: var(--muted); font-size: 13px; }
+.week__close .goalPick__source { margin-right: var(--space-2); }
+@media (max-width: 640px) {
+  .goal .week__picks { grid-template-columns: minmax(0, 1fr); }
+  .goalPick .pick__verdict { white-space: normal; overflow-wrap: anywhere; }
+  .covers__remove { align-self: stretch; min-height: calc(var(--space-7) - var(--space-1)); }
+  .covers__undo { flex-direction: column; align-items: flex-start; }
+}
 .topbar__tabs { display: flex; gap: var(--space-1); margin-left: var(--space-4); }

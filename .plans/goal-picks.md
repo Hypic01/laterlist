@@ -165,7 +165,7 @@
 - `Close, but no` stays a single collapsed block as today, with each row tagged with its `goal` in a mono pill.
 - Phone at 640 px or narrower: covers start collapsed, and Remove all is full width with `min-height: 44px`.
 
-- [ ] **Step 1: Write failing tests:**
+- [x] **Step 1: Write failing tests:**
   - `renders goal sections, counts, empty goal text and source pills`.
   - `a youtube pick has no category dot; a saved pick does`.
   - `covers: open at 1 to 5, collapsed above 5, gone rows struck, Remove all count excludes gone`.
@@ -173,9 +173,9 @@
   - `applyRemoved marks the ids gone in every pick`.
   - `legacy flat sets still render three cards`, which is the existing first test with no changes.
   - `hostile goal names and cover titles render as text`.
-- [ ] **Step 2:** Run `npx vitest run tests/this-week.test.js`. Expected: FAIL.
-- [ ] **Step 3:** Implement. Keep the legacy branch as it is, and add a `GoalSection` and a `CoversBlock` component in the same file.
-- [ ] **Step 4:** Run `npm test` and `npm run build:web`. Expected: PASS, and the build succeeds.
+- [x] **Step 2:** Run `npx vitest run tests/this-week.test.js`. Expected: FAIL.
+- [x] **Step 3:** Implement. Keep the legacy branch as it is, and add a `GoalSection` and a `CoversBlock` component in the same file.
+- [x] **Step 4:** Run `npm test` and `npm run build:web`. Expected: PASS, and the build succeeds.
 - [ ] **Step 5: Verify in dev.**
   1. Start dev with `DEV_FAKE_AUTH=1 FAKE_LLM=1 npm start`.
   2. Seed 8 videos, create a picks key, and POST `fixtures/goal-picks.sample.json` (create it). It needs 2 goals: one with a youtube pick covering 6 seeded ids and a saved pick, and one empty goal.
@@ -187,7 +187,7 @@
      - Verdicts persist after a reload.
      - There are no console errors.
      - A 375 px window has no horizontal scroll.
-- [ ] **Step 6:** Commit `feat(web): This week grouped by goal with covers and Remove all`.
+- [x] **Step 6:** Commit `feat(web): This week grouped by goal with covers and Remove all`.
 
 ### Task 5: CLI search, budget, and goal rendering
 
@@ -248,3 +248,9 @@ DEV_FAKE_AUTH=1 FAKE_LLM=1 npm start
 - [ ] Task 4 Step 5 dev checks all pass, with no console errors and no sideways scroll at 375 px.
 - [ ] A legacy week (flat payload) still renders on This week and in `past`.
 - [ ] Task 6 is done. One manual production run posts goal picks.
+
+## Deviations
+
+- The worktree has no root `AGENTS.md`, so the supplied AGENTS.md instructions and this plan governed the work.
+- The plan's `superpowers` execution skills are unavailable in this session. The available `pstack:poteto-mode` workflow was read, and the plan's test-first sequence was followed directly.
+- Task 4 Step 5 completed the local server, eight-video seed, picks token, and sample POST. The browser checks were skipped under the user's stated exception: the in-app browser was unavailable and Chrome control timed out. `npm run build:web` succeeded. Console errors and 375 px scroll were not checked in a browser.
