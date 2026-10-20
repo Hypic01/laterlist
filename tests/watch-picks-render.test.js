@@ -16,6 +16,35 @@ const base = (over = {}) => ({
   closeButNo: [{ id: "bbbbbbbbbbb", title: "Mistakes", reason: "Repeat" }], ...over,
 });
 const tmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), "picks-out-"));
+const goalSet = () => validatePicks({ week: "2026-10-19", notice: "", goals: [
+  { name: "Find a design job", need: "Practice interviews", picks: [
+    { id: "aaaaaaaaaaa", source: "youtube", title: "Walkthrough", channel: "Chan", durationSeconds: 600,
+      author: "Working designer", why: "Useful now", action: "Practice today", gets: ["A step"],
+      start: 60, end: 300, covers: ["ccccccccccc"] },
+  ] },
+  { name: "Ship a project", need: "Finish a slice", picks: [] },
+], closeButNo: [] });
+
+describe("goal set rendering", () => {
+  it("groups HTML and Markdown by goal and round-trips every pick", () => {
+    const data = goalSet();
+    data.goals[1].picks = [{ ...data.goals[0].picks[0], id: "ddddddddddd", title: "Project video", source: "saved", covers: [] }];
+    const html = renderHtml(data);
+    const md = renderMarkdown(data);
+    expect(html).toContain("Find a design job");
+    expect(html).toContain("Ship a project");
+    expect(html).toContain("From YouTube");
+    expect(html).toContain("In your Watch Later");
+    expect(html).toContain("Working designer");
+    expect(html).toContain("Practice today");
+    expect(html).toContain("Covers: 1 saved videos");
+    expect(md).toContain("Covers: 1 saved videos");
+    expect(parsePicksNote(md).picks).toEqual([
+      { id: "aaaaaaaaaaa", title: "Walkthrough", verdict: null },
+      { id: "ddddddddddd", title: "Project video", verdict: null },
+    ]);
+  });
+});
 
 describe("weekId", () => {
   it("returns the Monday of the local week", () => {

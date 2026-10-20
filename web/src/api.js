@@ -42,6 +42,8 @@ export const submitImport = (payload) => post("/api/imports", payload);
 export const classifyRemaining = () => post("/api/jobs/classify-remaining");
 export const setCategory = (id, category) => post(`/api/videos/${id}/category`, { category });
 export const dismissVideo = (id) => post(`/api/videos/${id}/dismiss`);
+export const dismissVideos = (ids) => post("/api/videos/dismiss", { ids });
+export const restoreVideos = (ids) => post("/api/videos/restore", { ids });
 export const markDone = (ids) => post("/api/videos/done", { ids });
 const videoUrl = (id) => `/api/videos/${encodeURIComponent(id)}`;
 export const getVideo = (id) => call(videoUrl(id));

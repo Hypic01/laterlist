@@ -1,0 +1,50 @@
+{
+  "week": "2026-10-19",
+  "notice": "",
+  "goals": [
+    {
+      "name": "Land a product design job",
+      "need": "Practice presenting portfolio work in interviews.",
+      "picks": [
+        {
+          "id": "vid00000099",
+          "source": "youtube",
+          "title": "A product design portfolio walkthrough",
+          "channel": "Design Interview Studio",
+          "durationSeconds": 1800,
+          "author": "Working product designer and interviewer",
+          "why": "Shows a concrete structure for explaining design decisions.",
+          "action": "Practice a ten minute walkthrough this week.",
+          "gets": ["An opening structure", "A way to explain tradeoffs"],
+          "start": 120,
+          "end": 900,
+          "noTranscript": false,
+          "covers": ["vid00000002", "vid00000003", "vid00000004", "vid00000005", "vid00000006", "vid00000007"]
+        },
+        {
+          "id": "vid00000001",
+          "source": "saved",
+          "title": "Practice interview answers",
+          "channel": "Design Interview Studio",
+          "durationSeconds": 900,
+          "author": "Working product designer and interviewer",
+          "why": "Gives prompts to rehearse before an interview.",
+          "action": "Record one practice answer.",
+          "gets": ["A rehearsal prompt"],
+          "start": 60,
+          "end": 500,
+          "noTranscript": false,
+          "covers": []
+        }
+      ],
+      "empty": ""
+    },
+    {
+      "name": "Ship a design project",
+      "need": "Finish the next useful slice.",
+      "picks": [],
+      "empty": "Nothing good enough this week."
+    }
+  ],
+  "closeButNo": []
+}

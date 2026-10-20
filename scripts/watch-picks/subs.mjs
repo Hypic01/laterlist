@@ -7,7 +7,26 @@ import { TRANSCRIPT_CAP } from "./db.mjs";
 const require = createRequire(import.meta.url);
 const ID_RE = /^[A-Za-z0-9_-]{11}$/;
 
-export const FETCH_BUDGET = 8;
+export const FETCH_BUDGET = 24;
+
+export function searchArgs(query, limit = 10) {
+  const q = String(query ?? "").replace(/\s+/g, " ").trim().slice(0, 120).trim();
+  if (!q) throw new Error("search query is required");
+  const n = Math.max(1, Math.min(20, Number.isFinite(Number(limit)) ? Math.trunc(Number(limit)) : 10));
+  return ["--ignore-config", "--flat-playlist", "-J", "--", `ytsearch${n}:${q}`];
+}
+
+export function parseSearch(json) {
+  const data = JSON.parse(json);
+  return (Array.isArray(data.entries) ? data.entries : [])
+    .filter((entry) => ID_RE.test(entry?.id) && Number.isFinite(entry.duration) && entry.duration >= 180 && entry.duration <= 7200)
+    .slice(0, 20)
+    .map((entry) => ({
+      id: entry.id, title: String(entry.title || ""), channel: String(entry.channel || entry.uploader || ""),
+      durationSeconds: entry.duration, views: Number.isFinite(entry.view_count) ? entry.view_count : null,
+      uploadDate: String(entry.upload_date || ""),
+    }));
+}
 
 export function fmtTime(sec) {
   const s = Math.max(0, Math.floor(sec));
@@ -108,9 +127,10 @@ export function ytDlpArgs(subsDir, ids) {
 
 export function runYtDlp(bin, args) {
   return new Promise((resolve) => {
-    execFile(bin, args, { timeout: 180000, maxBuffer: 10 * 1024 * 1024 }, (error, _stdout, stderr) => {
+    execFile(bin, args, { timeout: 180000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
       resolve({
         code: error ? (Number.isInteger(error.code) ? error.code : 1) : 0,
+        stdout: String(stdout || ""),
         stderr: String(stderr || error?.message || "").trim(),
       });
     });

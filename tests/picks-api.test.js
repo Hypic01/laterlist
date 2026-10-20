@@ -52,6 +52,16 @@ const setFor = (week, ids, over = {}) => ({
 const postAsMac = (body, token = "wll_picks") =>
   request(app).post("/api/picks").set("X-Import-Token", token).send(body);
 
+const goalPick = (n, source = "youtube", over = {}) => ({
+  id: vid(n), source, title: `Video ${n}`, channel: "Chan", durationSeconds: 600,
+  author: "Working designer", why: "Useful", action: "Practice", gets: ["One thing"],
+  start: 60, end: 300, noTranscript: false, covers: [], ...over,
+});
+const goalSet = (picks = [goalPick(99)], over = {}) => ({
+  week: "2026-10-19", notice: "", goals: [{ name: "Get a design job", need: "Prepare for interviews", picks }],
+  closeButNo: [], ...over,
+});
+
 let uid;
 beforeEach(async () => {
   ({ db, pg } = await testDb());
@@ -59,6 +69,62 @@ beforeEach(async () => {
   uid = await joonId();
   await seed(uid, 8);
   await tokens(uid);
+});
+
+describe("goal picks", () => {
+  it("posts an unsaved YouTube pick and rejects an unsaved saved pick", async () => {
+    expect((await postAsMac(goalSet()).expect(200)).body).toEqual({ week: "2026-10-19", picks: 1, warnings: [] });
+    const bad = await postAsMac(goalSet([goalPick(99, "saved")])).expect(400);
+    expect(bad.body.error).toContain(vid(99));
+  });
+
+  it("drops unknown, done and dismissed covers with warnings", async () => {
+    await pg.query("UPDATE videos SET status = 'done' WHERE user_id = $1 AND video_id = $2", [uid, vid(2)]);
+    await pg.query("UPDATE videos SET status = 'dismissed' WHERE user_id = $1 AND video_id = $2", [uid, vid(3)]);
+    const body = goalSet([goalPick(99, "youtube", { covers: [vid(1), vid(2), vid(3), vid(90)] })]);
+    const posted = await postAsMac(body).expect(200);
+    expect(posted.body.warnings.join(" ")).toContain(vid(2));
+    expect(posted.body.warnings.join(" ")).toContain(vid(3));
+    expect(posted.body.warnings.join(" ")).toContain(vid(90));
+    const stored = await db.pickSet(uid, body.week);
+    expect(stored.payload.goals[0].picks[0].covers).toEqual([vid(1)]);
+  });
+
+  it("joins saved picks and covers, and marks a subsequently removed cover gone", async () => {
+    await postAsMac(goalSet([goalPick(1, "saved", { covers: [vid(2), vid(3)] }), goalPick(99)])).expect(200);
+    await asJoon(request(app).post(`/api/videos/${vid(2)}/dismiss`)).expect(200);
+    const { body } = await asJoon(request(app).get("/api/picks/current")).expect(200);
+    const picks = body.set.goals[0].picks;
+    expect(picks[0].video).toMatchObject({ title: "Video 1" });
+    expect(picks[1].video).toBeNull();
+    expect(picks[0].covers).toEqual([
+      { id: vid(2), title: "Video 2", channel: "Chan", durationSeconds: 600, gone: true },
+      { id: vid(3), title: "Video 3", channel: "Chan", durationSeconds: 600, gone: false },
+    ]);
+  });
+
+  it("stores a YouTube verdict without marking a library video done", async () => {
+    await postAsMac(goalSet()).expect(200);
+    const { body } = await asJoon(request(app).post("/api/picks/2026-10-19/verdict"))
+      .send({ videoId: vid(99), verdict: "worth" }).expect(200);
+    expect(body.marked).toBe(0);
+    expect((await db.pickVerdicts(uid, "2026-10-19"))[vid(99)]).toBe("worth");
+    expect((await pg.query("SELECT count(*)::int AS n FROM youtube_removals WHERE user_id = $1", [uid])).rows[0].n).toBe(0);
+  });
+
+  it("marks a saved goal pick done", async () => {
+    await postAsMac(goalSet([goalPick(1, "saved")])).expect(200);
+    const { body } = await asJoon(request(app).post("/api/picks/2026-10-19/verdict"))
+      .send({ videoId: vid(1), verdict: "worth" }).expect(200);
+    expect(body.marked).toBe(1);
+    expect((await pg.query("SELECT status FROM videos WHERE user_id = $1 AND video_id = $2", [uid, vid(1)])).rows[0].status).toBe("done");
+  });
+
+  it("history includes YouTube picks from goal sets", async () => {
+    await postAsMac(goalSet([goalPick(1, "saved"), goalPick(99)])).expect(200);
+    const { body } = await request(app).get("/api/picks/history").set("X-Import-Token", "wll_picks").expect(200);
+    expect(body.map((p) => p.id)).toEqual([vid(1), vid(99)]);
+  });
 });
 
 describe("picks routes", () => {

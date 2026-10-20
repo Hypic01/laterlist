@@ -3,6 +3,7 @@
 // the original localhost app's db.js, with user_id threaded through every
 // statement. All critical writes are single statements, so no cross-call
 // transactions are needed (pool-safe).
+import { allPicks } from "./picks.js";
 
 export const CATEGORIES = ["learn", "watch", "music", "entertainment", "outdated"];
 
@@ -384,6 +385,40 @@ export function createDb(q) {
       return rows.length > 0;
     },
 
+    async dismissMany(userId, ids) {
+      const { rows } = await q.query(
+        `UPDATE videos SET status = 'dismissed', override_at = clock_timestamp(), override_seq = nextval('override_seq')
+         WHERE user_id = $1 AND video_id = ANY($2::text[]) AND status = 'scanned'
+         RETURNING video_id`,
+        [userId, ids]
+      );
+      const changed = new Set(rows.map((row) => row.video_id));
+      return [...new Set(ids)].filter((id) => changed.has(id));
+    },
+
+    async restoreDismissed(userId, ids) {
+      const { rows } = await q.query(
+        `UPDATE videos SET status = 'scanned', override_at = clock_timestamp(), override_seq = nextval('override_seq')
+         WHERE user_id = $1 AND video_id = ANY($2::text[]) AND status = 'dismissed'
+         RETURNING video_id`,
+        [userId, ids]
+      );
+      const changed = new Set(rows.map((row) => row.video_id));
+      const restored = [...new Set(ids)].filter((id) => changed.has(id));
+      if (!restored.length) return { restored, alreadyOffYoutube: [] };
+      await q.query(
+        `DELETE FROM youtube_removals WHERE user_id = $1 AND video_id = ANY($2::text[])
+         AND state IN ('pending', 'failed')`,
+        [userId, restored]
+      );
+      const removals = await q.query(
+        `SELECT video_id FROM youtube_removals WHERE user_id = $1 AND video_id = ANY($2::text[]) AND state = 'removed'`,
+        [userId, restored]
+      );
+      const off = new Set(removals.rows.map((row) => row.video_id));
+      return { restored, alreadyOffYoutube: restored.filter((id) => off.has(id)) };
+    },
+
     // Swiping right in the phone's Clean up: the video stays on the board but
     // stops coming back in Clean up.
     async keep(userId, videoId) {
@@ -737,7 +772,7 @@ export function createDb(q) {
         [userId]
       );
       const byKey = new Map(verdicts.map((v) => [`${v.week}|${v.video_id}`, v.verdict]));
-      return sets.flatMap((s) => (s.payload.picks || []).map((p) => ({
+      return sets.flatMap((s) => allPicks(s.payload).map((p) => ({
         week: s.week, id: p.id, title: p.title, verdict: byKey.get(`${s.week}|${p.id}`) || null,
       })));
     },

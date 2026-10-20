@@ -10,7 +10,7 @@ import {
   PicksEnvError, loadPicksEnv, connect, withReadOnly, validIds, listEligible,
   formatListLine, getDetails, getTranscripts, checkAccess,
 } from "./watch-picks/db.mjs";
-import { cleanVtt, pickSubFiles, libraryTranscripts, ytDlpArgs, runYtDlp, FETCH_BUDGET } from "./watch-picks/subs.mjs";
+import { cleanVtt, pickSubFiles, libraryTranscripts, ytDlpArgs, runYtDlp, searchArgs, parseSearch, FETCH_BUDGET } from "./watch-picks/subs.mjs";
 import {
   PicksDataError, validatePicks, renderHtml, renderMarkdown, outputPaths, pastPicks, weekId,
 } from "./watch-picks/render.mjs";
@@ -27,7 +27,7 @@ export const DEFAULTS = {
   ytDlp: "/Library/Frameworks/Python.framework/Versions/3.10/bin/yt-dlp",
 };
 
-const USAGE = "usage: watch-picks.mjs <work|check|list|details <ids>|transcripts <ids>|fetch-subs <ids>|clean-subs|render <picks.json>|post <picks.json>|past [weeks]>";
+const USAGE = "usage: watch-picks.mjs <work|check|list|search <query> [--limit N]|details <ids>|transcripts <ids>|fetch-subs <ids>|clean-subs|render <picks.json>|post <picks.json>|past [weeks]>";
 
 function cleanSubs(work, out) {
   const subs = path.join(work, "subs");
@@ -106,6 +106,31 @@ export async function main(argv, deps = {}) {
         const file = path.join(work, "list.tsv");
         fs.writeFileSync(file, ["id\trow\tlength\tage\tchannel\ttitle\ttopics", ...rows.map(formatListLine)].join("\n") + "\n");
         o.out(`${rows.length} eligible videos (${exclude.length} recent picks excluded) -> ${file}`);
+        return 0;
+      }
+      case "search": {
+        if (!arg) {
+          o.err("search needs a query");
+          return 2;
+        }
+        if (argv.length > 2 && (argv[2] !== "--limit" || argv.length !== 4)) {
+          o.err(USAGE);
+          return 2;
+        }
+        const args = searchArgs(arg, argv[3] ?? 10);
+        const result = await o.runYtDlp(o.ytDlp, args);
+        if (result.code !== 0) {
+          o.err(`search failed: ${result.stderr.split("\n").filter(Boolean).pop() || "no output"}`);
+          return 1;
+        }
+        const rows = parseSearch(result.stdout);
+        ensureWork();
+        let n = 1;
+        while (fs.existsSync(path.join(work, `search-${n}.json`))) n++;
+        const file = path.join(work, `search-${n}.json`);
+        fs.writeFileSync(file, JSON.stringify(rows, null, 2));
+        for (const row of rows) o.out([row.id, row.durationSeconds, row.views ?? "", row.uploadDate, row.channel, row.title].join("\t"));
+        o.out(`saved: ${file}`);
         return 0;
       }
       case "details": {
@@ -217,7 +242,9 @@ export async function main(argv, deps = {}) {
           if (data.error) throw new PicksApiError(`not posted: ${data.error}`);
           await postPicks({ appUrl: env.appUrl, apiToken: env.apiToken, data, fetchImpl: o.fetchImpl });
           fs.writeFileSync(md, renderMarkdown(data, { posted: true }));
-          o.out(`posted: yes (${data.picks.length} picks for ${data.week})`);
+          o.out(Array.isArray(data.goals)
+            ? `posted: yes (${data.goals.reduce((n, g) => n + g.picks.length, 0)} picks across ${data.goals.length} goals for ${data.week})`
+            : `posted: yes (${data.picks.length} picks for ${data.week})`);
           o.out(`open: ${env.appUrl}/app`);
         } catch (e) {
           if (!(e instanceof PicksApiError)) throw e;

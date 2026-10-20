@@ -19,3 +19,5 @@ extension/*.pem
 extension/key.pem
 extension/dist/
 extension/*.zip
+
+.superpowers/
