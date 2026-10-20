@@ -123,16 +123,16 @@
   - Both endpoints return 400 when `ids` is missing or empty, and slice to 500.
   - `api.dismissVideos(ids)` and `api.restoreVideos(ids)` in `web/src/api.js`.
 
-- [ ] **Step 1: Write failing tests:**
+- [x] **Step 1: Write failing tests:**
   - `bulk dismiss changes only scanned rows and returns them`: send one done video and one unknown id, and expect both to be absent from `removed`.
   - `bulk dismiss queues YouTube removals only when allowed`: run with and without the `imports` token.
   - `a second identical call returns removed: []`.
   - `restore brings rows back, cancels pending removals and reports removed ones`. Set one queue row to `state='removed'` with SQL, then assert `alreadyOffYoutube` holds that id, the pending row is gone, and the status is `scanned`.
   - `both routes need auth and ids`.
-- [ ] **Step 2:** Run `npx vitest run tests/bulk-remove.test.js`. Expected: FAIL.
-- [ ] **Step 3:** Implement. Register both routes before any `/api/videos/:id` POST route that could shadow them, next to `/api/videos/done`.
-- [ ] **Step 4:** Run `npm test`. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(api): bulk dismiss and restore for Remove all and Undo`.
+- [x] **Step 2:** Run `npx vitest run tests/bulk-remove.test.js`. Expected: FAIL.
+- [x] **Step 3:** Implement. Register both routes before any `/api/videos/:id` POST route that could shadow them, next to `/api/videos/done`.
+- [x] **Step 4:** Run `npm test`. Expected: PASS.
+- [x] **Step 5:** Commit `feat(api): bulk dismiss and restore for Remove all and Undo`.
 
 ### Task 4: This week, layout A
 

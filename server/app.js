@@ -367,6 +367,23 @@ export function createApp({
     res.json({ summary: generated.summary, cached: false });
   });
 
+  app.post("/api/videos/dismiss", auth.required, async (req, res) => {
+    const { ids } = req.body || {};
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: "ids required" });
+    const removed = await db.dismissMany(req.user.id, ids.map(String).slice(0, 500));
+    if (removed.length && removalAllowed(req.user)) {
+      await db.enqueueYoutubeRemovals(req.user.id, removed, "dismissed");
+    }
+    res.json({ ok: true, removed });
+  });
+
+  app.post("/api/videos/restore", auth.required, async (req, res) => {
+    const { ids } = req.body || {};
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: "ids required" });
+    const result = await db.restoreDismissed(req.user.id, ids.map(String).slice(0, 500));
+    res.json({ ok: true, ...result });
+  });
+
   app.post("/api/videos/:id/category", auth.required, async (req, res) => {
     const { category } = req.body || {};
     if (!CATEGORIES.includes(category)) return res.status(400).json({ error: "unknown category" });
