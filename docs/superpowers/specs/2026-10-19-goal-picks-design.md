@@ -50,7 +50,7 @@ Joon's mentor agent (`~/projects/personal-agent-tapnote`, loop v2 from 2026-10-1
 
 The run reads, in this order:
 
-1. `state/week.json` in the agent's state folder (location in that repo's `AGENTS.md`), only when its `week_start` is this week's Monday. Its `priorities` and `one_thing` are the strongest signal.
+1. `~/projects/personal-agent/state/week.json`, only when its `week_start` is this week's Monday. Its `priorities` and `one_thing` are the strongest signal.
 2. `2. Areas/Mentor/성장 사다리.md`: "6개월 뒤의 나" and the top two goals (filled by the intake), "이번 주 우선순위 셋", and the Q4 quests.
 3. The 7 newest `Days/` notes and recent `1. Projects/` and `2. Areas/Job/` notes, only to sharpen what he needs inside each goal. For example, he has moved past applications to interviews, so interview prep beats resume tips.
 4. `CLI past` for verdicts.
