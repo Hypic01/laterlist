@@ -92,21 +92,21 @@
   - `GET /api/picks/current` returns `set.goals[].picks[]`, each with `video` (the library row or `null`), `verdict`, and `covers: [{ id, title, channel, durationSeconds, gone }]`.
   - Legacy sets keep today's response.
 
-- [ ] **Step 1: Write failing tests:**
+- [x] **Step 1: Write failing tests:**
   - `a youtube pick not in the library posts; a saved pick not in the library is 400 naming it`.
   - `unknown, done or dismissed covers are dropped with a warning, not a 400`: `warnings` contains the id, and the stored payload no longer lists it.
   - `current joins saved picks and covers; a cover removed after posting comes back gone: true`. Seed it, post it, call `POST /api/videos/:id/dismiss` on one cover, then assert `gone`.
   - `worth on a youtube pick saves the verdict and marks nothing done`: `marked === 0`, and no `youtube_removals` row.
   - `worth on a saved goal pick marks done like today`.
   - `history flattens goal sets, youtube picks included`.
-- [ ] **Step 2:** Run `npx vitest run tests/picks-api.test.js`. Expected: the new tests FAIL and the old ones PASS.
-- [ ] **Step 3: Implement.**
+- [x] **Step 2:** Run `npx vitest run tests/picks-api.test.js`. Expected: the new tests FAIL and the old ones PASS.
+- [x] **Step 3: Implement.**
   - `POST`: run the library check on `savedPickIds(set)` plus the legacy picks and closeButNo ids. Then filter `coverIds` with `db.videosByIds`, keeping only `status === 'scanned'`. Rewrite each pick's `covers` and collect `warnings` before calling `upsertPickSet`.
   - `current`: one `videosByIds` call over `pickIds` plus `coverIds`. A cover gets `gone` when its row is missing or not `scanned`.
   - Verdict route: find the pick with `allPicks(set.payload)`, and mark done only when `source === "saved"`.
   - `pickHistory`: use `allPicks(s.payload)`.
-- [ ] **Step 4:** Run `npm test`. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(picks): API stores and serves goal picks with covers`.
+- [x] **Step 4:** Run `npm test`. Expected: PASS.
+- [x] **Step 5:** Commit `feat(picks): API stores and serves goal picks with covers`.
 
 ### Task 3: Bulk remove and restore
 

@@ -3,6 +3,7 @@
 // the original localhost app's db.js, with user_id threaded through every
 // statement. All critical writes are single statements, so no cross-call
 // transactions are needed (pool-safe).
+import { allPicks } from "./picks.js";
 
 export const CATEGORIES = ["learn", "watch", "music", "entertainment", "outdated"];
 
@@ -737,7 +738,7 @@ export function createDb(q) {
         [userId]
       );
       const byKey = new Map(verdicts.map((v) => [`${v.week}|${v.video_id}`, v.verdict]));
-      return sets.flatMap((s) => (s.payload.picks || []).map((p) => ({
+      return sets.flatMap((s) => allPicks(s.payload).map((p) => ({
         week: s.week, id: p.id, title: p.title, verdict: byKey.get(`${s.week}|${p.id}`) || null,
       })));
     },
