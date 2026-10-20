@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { describe, it, expect } from "vitest";
-import { fmtTime, cleanVtt, pickSubFiles, libraryTranscripts, ytDlpArgs, runYtDlp } from "../scripts/watch-picks/subs.mjs";
+import { FETCH_BUDGET, fmtTime, cleanVtt, pickSubFiles, libraryTranscripts, ytDlpArgs, runYtDlp, searchArgs, parseSearch } from "../scripts/watch-picks/subs.mjs";
 import { TRANSCRIPT_CAP } from "../scripts/watch-picks/db.mjs";
 
 const require = createRequire(import.meta.url);
@@ -110,5 +110,46 @@ describe("runYtDlp", () => {
     const r = await runYtDlp("/nonexistent/yt-dlp", ["--version"]);
     expect(r.code).not.toBe(0);
     expect(r.stderr.length).toBeGreaterThan(0);
+  });
+});
+
+describe("search", () => {
+  it("keeps a hostile query inside one argument after --", () => {
+    const args = searchArgs("--exec rm -rf ~");
+    expect(args).toEqual(["--ignore-config", "--flat-playlist", "-J", "--", "ytsearch10:--exec rm -rf ~"]);
+    expect(args.filter((x) => x === "--exec")).toEqual([]);
+  });
+
+  it("clamps limits, normalizes the query and rejects empty text", () => {
+    expect(searchArgs("  design   interview  ", 99).at(-1)).toBe("ytsearch20:design interview");
+    expect(searchArgs("topic", 0).at(-1)).toBe("ytsearch1:topic");
+    expect(searchArgs("x".repeat(130)).at(-1)).toHaveLength("ytsearch10:".length + 120);
+    expect(() => searchArgs(" \n ")).toThrow(/query/);
+  });
+
+  it("drops shorts, long videos, unknown durations and bad ids", () => {
+    const rows = parseSearch(JSON.stringify({ entries: [
+      { id: "aaaaaaaaaaa", title: "Good", channel: "Chan", duration: 180, view_count: 100, upload_date: "20261019" },
+      { id: "bbbbbbbbbbb", duration: 179 },
+      { id: "ccccccccccc", duration: 7201 },
+      { id: "ddddddddddd" },
+      { id: "bad", duration: 600 },
+      { id: "eeeeeeeeeee", title: "Long enough", uploader: "Other", duration: 7200 },
+    ] }));
+    expect(rows).toEqual([
+      { id: "aaaaaaaaaaa", title: "Good", channel: "Chan", durationSeconds: 180, views: 100, uploadDate: "20261019" },
+      { id: "eeeeeeeeeee", title: "Long enough", channel: "Other", durationSeconds: 7200, views: null, uploadDate: "" },
+    ]);
+  });
+
+  it("caps parsed results at 20", () => {
+    const entries = Array.from({ length: 25 }, (_, n) => ({
+      id: `vid${String(n).padStart(8, "0")}`, duration: 600,
+    }));
+    expect(parseSearch(JSON.stringify({ entries }))).toHaveLength(20);
+  });
+
+  it("has a weekly subtitle fetch budget of 24", () => {
+    expect(FETCH_BUDGET).toBe(24);
   });
 });

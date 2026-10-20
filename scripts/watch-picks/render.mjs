@@ -76,6 +76,10 @@ h2 { font-size: 21px; line-height: 1.25; }
 .close h3 { font-size: 18px; margin-bottom: var(--space-3); }
 .close ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .reason { color: var(--muted); display: block; font-size: 13px; }
+.goal { border-top: 1px solid var(--border); padding-top: var(--space-5); margin-top: var(--space-5); }
+.goal p { margin: 0; }
+.goal .cards { margin-top: var(--space-4); }
+.source { color: var(--muted); border: 1px solid var(--border-strong); border-radius: var(--radius-pill); padding: var(--space-1) var(--space-2); }
 `;
 
 const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${text}</a>`;
@@ -91,6 +95,34 @@ export function renderHtml(d) {
   const tail = `</main></body></html>`;
   if (d.error) {
     return `${head}<h1 class="focus">Couldn't reach Laterlist this week</h1><p class="notice">${esc(d.error)}</p>${tail}`;
+  }
+  if (Array.isArray(d.goals)) {
+    const notice = d.notice ? `<p class="notice">${esc(d.notice)}</p>` : "";
+    const goals = d.goals.map((goal) => {
+      const cards = goal.picks.map((p) => {
+        const href = watchUrl(p.id, p.start);
+        const meta = [p.channel, minutes(p.durationSeconds)].filter(Boolean).map(esc).join(" · ");
+        const gets = p.gets.length ? `<ul class="gets">${p.gets.map((g) => `<li>${esc(g)}</li>`).join("")}</ul>` : "";
+        const covers = p.covers.length
+          ? `<p>Covers: ${p.covers.length} saved videos</p><ul>${p.covers.map((id) => `<li>${esc(id)}</li>`).join("")}</ul>` : "";
+        return `<article class="card">`
+          + link(href, `<img class="thumb" src="https://i.ytimg.com/vi/${p.id}/hqdefault.jpg" alt="">`)
+          + `<div class="body"><p class="row"><span class="source">${p.source === "saved" ? "In your Watch Later" : "From YouTube"}</span></p>`
+          + `<h2>${link(href, esc(p.title))}</h2><p class="meta">${meta}</p>`
+          + `<p>${esc(p.author)}</p><p><span class="label">Why you, now</span>${esc(p.why)}</p>`
+          + `<p>${esc(p.action)}</p><p class="chip">${esc(bestPart(p))}</p>${gets}${covers}`
+          + `${p.noTranscript ? `<p class="faint">Picked without reading the transcript</p>` : ""}`
+          + `</div></article>`;
+      }).join("");
+      return `<section class="goal"><h2>${esc(goal.name)}</h2><p class="meta">${esc(goal.need)}</p>`
+        + (goal.picks.length ? `<div class="cards">${cards}</div>` : `<p class="notice">${esc(goal.empty)}</p>`)
+        + `</section>`;
+    }).join("");
+    const close = d.closeButNo.length
+      ? `<section class="close"><h3>Close, but no (${d.closeButNo.length})</h3><ul>`
+        + d.closeButNo.map((c) => `<li>${esc(c.goal)} · ${link(watchUrl(c.id, null), esc(c.title))}<span class="reason">${esc(c.reason)}</span></li>`).join("")
+        + `</ul></section>` : "";
+    return `${head}<h1 class="focus">This week</h1>${notice}${goals}${close}${tail}`;
   }
   const points = d.focusPoints.length ? `<ul class="points">${d.focusPoints.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : "";
   const notice = d.notice ? `<p class="notice">${esc(d.notice)}</p>` : "";
@@ -125,6 +157,30 @@ export function renderMarkdown(d, { posted = false } = {}) {
     lines.push("Couldn't reach Laterlist this week.", "", `Error: ${d.error}`, "");
     return lines.join("\n");
   }
+  if (Array.isArray(d.goals)) {
+    if (d.notice) lines.push(`> ${d.notice}`, "");
+    for (const goal of d.goals) {
+      lines.push(`## ${goal.name}`, "", goal.need, "");
+      if (!goal.picks.length) lines.push(goal.empty, "");
+      goal.picks.forEach((p, i) => {
+        lines.push(`### ${i + 1}. [${mdText(p.title)}](${watchUrl(p.id, p.start)})`);
+        lines.push([p.channel, minutes(p.durationSeconds), p.source === "saved" ? "In your Watch Later" : "From YouTube", bestPart(p)]
+          .filter(Boolean).join(" · "));
+        lines.push("", `Author: ${p.author}`, `Why you, now: ${p.why}`, `Action: ${p.action}`);
+        for (const item of p.gets) lines.push(`- ${item}`);
+        lines.push(`Covers: ${p.covers.length} saved videos`);
+        for (const id of p.covers) lines.push(`- ${id}`);
+        if (p.noTranscript) lines.push("Picked without reading the transcript");
+        lines.push("", posted ? "Verdict: tap it in Laterlist" : `Verdict: ${VERDICT_TEMPLATE}`, "");
+      });
+    }
+    if (d.closeButNo.length) {
+      lines.push("## Close, but no", "");
+      for (const c of d.closeButNo) lines.push(`- ${c.goal}: [${mdText(c.title)}](${watchUrl(c.id, null)}): ${c.reason}`);
+      lines.push("");
+    }
+    return lines.join("\n");
+  }
   lines.push(`**Your focus this week:** ${d.focus}`);
   for (const f of d.focusPoints) lines.push(`- ${f}`);
   lines.push("");
@@ -152,9 +208,9 @@ export function parsePicksNote(md) {
   const picks = [];
   let current = null;
   for (const line of text.split(/\r?\n/)) {
-    if (line.startsWith("## ")) {
+    if (/^#{2,3} /.test(line)) {
       current = null;
-      const m = line.match(/^## \d+\. \[(.*)\]\(https:\/\/www\.youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})/);
+      const m = line.match(/^#{2,3} \d+\. \[(.*)\]\(https:\/\/www\.youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})/);
       if (m) {
         current = { id: m[2], title: m[1].replace(/\\([\\[\]])/g, "$1"), verdict: null };
         picks.push(current);

@@ -213,7 +213,7 @@
   - `parsePicksNote` returns every pick across goals, so `pastPicks` keeps working.
   - The `post` output line reads `posted: yes (<n> picks across <g> goals for <week>)` for goal sets.
 
-- [ ] **Step 1: Write failing tests:**
+- [x] **Step 1: Write failing tests:**
   - `searchArgs keeps a hostile query inside one argument after --`: the query `--exec rm -rf ~` gives a last argument that starts with `ytsearch10:--exec`, and no other argument equals `--exec`.
   - `searchArgs clamps limit and rejects empty`.
   - `parseSearch drops shorts, over 2h and unknown durations`.
@@ -221,10 +221,10 @@
   - `cli search writes search-1.json then search-2.json`, using the existing fake `runYtDlp` injection pattern with a canned stdout. Extend `runYtDlp` to resolve `stdout` too.
   - `render groups goal sets by goal and round-trips through parsePicksNote`.
   - `post prints picks across goals for a goal set`.
-- [ ] **Step 2:** Run `npx vitest run tests/watch-picks-subs.test.js tests/watch-picks-cli.test.js tests/watch-picks-render.test.js`. Expected: FAIL.
-- [ ] **Step 3:** Implement. Add `search` to `USAGE`.
-- [ ] **Step 4:** Run `npm test`. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(watch-picks): search subcommand, budget 24, goal rendering`.
+- [x] **Step 2:** Run `npx vitest run tests/watch-picks-subs.test.js tests/watch-picks-cli.test.js tests/watch-picks-render.test.js`. Expected: FAIL.
+- [x] **Step 3:** Implement. Add `search` to `USAGE`.
+- [x] **Step 4:** Run `npm test`. Expected: PASS.
+- [x] **Step 5:** Commit `feat(watch-picks): search subcommand, budget 24, goal rendering`.
 
 ### Task 6 (Claude, after Codex): skill, runtime, review
 
@@ -244,9 +244,9 @@ DEV_FAKE_AUTH=1 FAKE_LLM=1 npm start
 
 ## Definition of Done
 
-- [ ] `npm test` is green and `npm run build:web` succeeds.
+- [x] `npm test` is green and `npm run build:web` succeeds.
 - [ ] Task 4 Step 5 dev checks all pass, with no console errors and no sideways scroll at 375 px.
-- [ ] A legacy week (flat payload) still renders on This week and in `past`.
+- [x] A legacy week (flat payload) still renders on This week and in `past`.
 - [ ] Task 6 is done. One manual production run posts goal picks.
 
 ## Deviations

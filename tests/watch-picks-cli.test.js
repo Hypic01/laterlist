@@ -79,6 +79,45 @@ describe("watch-picks CLI", () => {
     expect(out.join("\n")).not.toContain("wll_k");
   });
 
+  it("search writes numbered results without spending the subtitle budget", async () => {
+    const calls = [];
+    deps.runYtDlp = async (_bin, args) => {
+      calls.push(args);
+      return { code: 0, stderr: "", stdout: JSON.stringify({ entries: [
+        { id: vid(1), title: "Interview", channel: "Chan", duration: 600, view_count: 10, upload_date: "20261019" },
+      ] }) };
+    };
+    expect(await main(["search", "--exec rm -rf ~"], deps)).toBe(0);
+    expect(await main(["search", "interview", "--limit", "2"], deps)).toBe(0);
+    expect(calls[0].at(-1)).toBe("ytsearch10:--exec rm -rf ~");
+    expect(calls[1].at(-1)).toBe("ytsearch2:interview");
+    expect(fs.existsSync(path.join(work(), "search-1.json"))).toBe(true);
+    expect(fs.existsSync(path.join(work(), "search-2.json"))).toBe(true);
+    expect(JSON.parse(fs.readFileSync(path.join(work(), "search-1.json"), "utf8"))).toHaveLength(1);
+    expect(out.join("\n")).toContain(vid(1));
+    expect(out).toContain(`saved: ${path.join(work(), "search-2.json")}`);
+    expect(fs.existsSync(path.join(work(), "fetch-count.json"))).toBe(false);
+  });
+
+  it("reports the last search failure line", async () => {
+    deps.runYtDlp = async () => ({ code: 1, stderr: "warning\nHTTP Error 429", stdout: "" });
+    expect(await main(["search", "interview"], deps)).toBe(1);
+    expect(err).toEqual(["search failed: HTTP Error 429"]);
+  });
+
+  it("post reports picks across goals for a goal set", async () => {
+    withApi([{ status: 200, body: { week: "2026-10-12", picks: 2, warnings: [] } }]);
+    const json = path.join(root, "goals.json");
+    const gp = (id) => ({ id, source: "youtube", title: "Title", channel: "Chan", durationSeconds: 600,
+      author: "Designer", why: "Useful", action: "Practice", gets: [], covers: [] });
+    fs.writeFileSync(json, JSON.stringify({ week: "2026-10-12", goals: [
+      { name: "Job", need: "Interview", picks: [gp(vid(1)), gp(vid(2))] },
+      { name: "Project", need: "Ship", picks: [] },
+    ], closeButNo: [] }));
+    expect(await main(["post", json], deps)).toBe(0);
+    expect(out).toContain("posted: yes (2 picks across 2 goals for 2026-10-12)");
+  });
+
   it("post failure falls back to the local page and says why", async () => {
     withApi([{ status: 401, body: { error: "invalid import token" } }]);
     expect(await main(["post", picksJson()], deps)).toBe(0);
@@ -235,6 +274,8 @@ describe("watch-picks CLI", () => {
   });
 
   it("fetch-subs passes a fixed argument list, cleans the output, and enforces the weekly budget", async () => {
+    fs.mkdirSync(work(), { recursive: true });
+    fs.writeFileSync(path.join(work(), "fetch-count.json"), JSON.stringify({ fetched: 16 }));
     const calls = [];
     deps.ytDlp = "/fake/yt-dlp";
     deps.runYtDlp = async (bin, args) => {
@@ -254,7 +295,7 @@ describe("watch-picks CLI", () => {
     expect(fs.readFileSync(path.join(work(), "t", `${vid(1)}.timed.txt`), "utf8")).toBe(`[0:01] hi ${vid(1)}`);
     expect(await main(["fetch-subs", five(10)], deps)).toBe(0);
     expect(calls[1].args.slice(calls[1].args.indexOf("--") + 1)).toHaveLength(3);
-    expect(out.join("\n")).toMatch(/fetched 3 of 5; budget of 8 this week reached/);
+    expect(out.join("\n")).toMatch(/fetched 3 of 5; budget of 24 this week reached/);
     expect(await main(["fetch-subs", five(20)], deps)).toBe(0);
     expect(calls).toHaveLength(2);
     expect(out.join("\n")).toMatch(/fetch budget used up/);
