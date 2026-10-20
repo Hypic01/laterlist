@@ -65,7 +65,7 @@
   - `savedPickIds(set) -> string[]`.
   - `coverIds(set) -> string[]`, deduped.
 
-- [ ] **Step 1: Write failing tests** in `tests/goal-picks-validate.test.js`:
+- [x] **Step 1: Write failing tests** in `tests/goal-picks-validate.test.js`:
   - `accepts a goal set and keeps legacy sets unchanged`: a legacy `setFor`-style object deep-equals its old output, and a goal set gets `goals.length === 2`.
   - `caps goals at 4, picks per goal at 3, covers at 20`.
   - `requires name, need, author, action; requires title, channel, durationSeconds for youtube picks`: each one missing throws `PicksDataError`, and the message names the goal or pick index.
@@ -74,10 +74,10 @@
   - `strips a pick's own id and any other picked id from covers, and drops bad ids`: covers `[self, otherPick, "bad", vid(5)]` becomes `[vid(5)]`.
   - `blank empty becomes "Nothing good enough this week." only when the goal has zero picks`.
   - `error-only sets still skip every requirement`.
-- [ ] **Step 2:** Run `npx vitest run tests/goal-picks-validate.test.js`. Expected: FAIL.
-- [ ] **Step 3:** Implement in `server/picks.js`. Branch on `Array.isArray(data.goals)`. The legacy path is the current code, untouched. Reuse `str`, `int` and `ID_RE`. Apply the start and end rule from the legacy path to every pick.
-- [ ] **Step 4:** Run `npx vitest run tests/goal-picks-validate.test.js tests/watch-picks-render.test.js`. Expected: PASS.
-- [ ] **Step 5:** Run `npm test`, then commit `feat(picks): validator accepts goal picks with covers`.
+- [x] **Step 2:** Run `npx vitest run tests/goal-picks-validate.test.js`. Expected: FAIL.
+- [x] **Step 3:** Implement in `server/picks.js`. Branch on `Array.isArray(data.goals)`. The legacy path is the current code, untouched. Reuse `str`, `int` and `ID_RE`. Apply the start and end rule from the legacy path to every pick.
+- [x] **Step 4:** Run `npx vitest run tests/goal-picks-validate.test.js tests/watch-picks-render.test.js`. Expected: PASS.
+- [x] **Step 5:** Run `npm test`, then commit `feat(picks): validator accepts goal picks with covers`.
 
 ### Task 2: Picks API serves goal sets
 
