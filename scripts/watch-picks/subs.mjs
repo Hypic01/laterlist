@@ -125,6 +125,31 @@ export function ytDlpArgs(subsDir, ids) {
   ];
 }
 
+// Flat search returns no upload date, and dropping flat mode would load every
+// result's watch page. Dates are fetched for the few finalists only.
+export const DATES_CAP = 20;
+
+export function datesArgs(ids) {
+  for (const id of ids) {
+    if (!ID_RE.test(id)) throw new Error(`bad video id: ${String(id).slice(0, 20)}`);
+  }
+  return [
+    "--ignore-config", "--no-playlist", "--skip-download", "--sleep-requests", "1",
+    "--print", "%(id)s\t%(upload_date)s",
+    "--", ...ids.map((id) => `https://www.youtube.com/watch?v=${id}`),
+  ];
+}
+
+export function parseDates(stdout, ids) {
+  const wanted = new Set(ids);
+  const dates = {};
+  for (const line of String(stdout).split("\n")) {
+    const m = line.trim().match(/^([A-Za-z0-9_-]{11})\t(\d{4})(\d{2})(\d{2})$/);
+    if (m && wanted.has(m[1])) dates[m[1]] = `${m[2]}-${m[3]}-${m[4]}`;
+  }
+  return dates;
+}
+
 export function runYtDlp(bin, args) {
   return new Promise((resolve) => {
     execFile(bin, args, { timeout: 180000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
