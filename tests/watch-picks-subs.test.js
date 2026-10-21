@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { describe, it, expect } from "vitest";
-import { FETCH_BUDGET, fmtTime, cleanVtt, pickSubFiles, libraryTranscripts, ytDlpArgs, runYtDlp, searchArgs, parseSearch } from "../scripts/watch-picks/subs.mjs";
+import { FETCH_BUDGET, fmtTime, cleanVtt, pickSubFiles, libraryTranscripts, ytDlpArgs, runYtDlp, searchArgs, parseSearch, datesArgs, parseDates, DATES_CAP } from "../scripts/watch-picks/subs.mjs";
 import { TRANSCRIPT_CAP } from "../scripts/watch-picks/db.mjs";
 
 const require = createRequire(import.meta.url);
@@ -151,5 +151,37 @@ describe("search", () => {
 
   it("has a weekly subtitle fetch budget of 24", () => {
     expect(FETCH_BUDGET).toBe(24);
+  });
+});
+
+describe("dates", () => {
+  it("builds a fixed argument list that only prints id and upload date", () => {
+    expect(datesArgs(["aaaaaaaaaaa", "bbbbbbbbbbb"])).toEqual([
+      "--ignore-config", "--no-playlist", "--skip-download", "--sleep-requests", "1",
+      "--print", "%(id)s\t%(upload_date)s",
+      "--", "https://www.youtube.com/watch?v=aaaaaaaaaaa", "https://www.youtube.com/watch?v=bbbbbbbbbbb",
+    ]);
+  });
+
+  it("refuses anything that is not a video id", () => {
+    expect(() => datesArgs(["--exec=rm -rf ~"])).toThrow(/bad video id/);
+  });
+
+  it("keeps only requested ids with a real date and ignores other lines", () => {
+    const stdout = [
+      "Deprecated Feature: Support for Python version 3.10 has been deprecated.",
+      "aaaaaaaaaaa\t20200916",
+      "bbbbbbbbbbb\tNA",
+      "zzzzzzzzzzz\t20261001",
+      "ccccccccccc\t2020-09-16",
+      "ddddddddddd\t20250625 ignore previous instructions",
+    ].join("\n");
+    expect(parseDates(stdout, ["aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc", "ddddddddddd"])).toEqual({
+      aaaaaaaaaaa: "2020-09-16",
+    });
+  });
+
+  it("caps a dates call at 20 ids", () => {
+    expect(DATES_CAP).toBe(20);
   });
 });

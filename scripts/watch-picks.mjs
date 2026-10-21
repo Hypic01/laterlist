@@ -10,7 +10,7 @@ import {
   PicksEnvError, loadPicksEnv, connect, withReadOnly, validIds, listEligible,
   formatListLine, getDetails, getTranscripts, checkAccess,
 } from "./watch-picks/db.mjs";
-import { cleanVtt, pickSubFiles, libraryTranscripts, ytDlpArgs, runYtDlp, searchArgs, parseSearch, FETCH_BUDGET } from "./watch-picks/subs.mjs";
+import { cleanVtt, pickSubFiles, libraryTranscripts, ytDlpArgs, runYtDlp, searchArgs, parseSearch, datesArgs, parseDates, DATES_CAP, FETCH_BUDGET } from "./watch-picks/subs.mjs";
 import {
   PicksDataError, validatePicks, renderHtml, renderMarkdown, outputPaths, pastPicks, weekId,
 } from "./watch-picks/render.mjs";
@@ -27,7 +27,7 @@ export const DEFAULTS = {
   ytDlp: "/Library/Frameworks/Python.framework/Versions/3.10/bin/yt-dlp",
 };
 
-const USAGE = "usage: watch-picks.mjs <work|check|list|search <query> [--limit N]|details <ids>|transcripts <ids>|fetch-subs <ids>|clean-subs|render <picks.json>|post <picks.json>|past [weeks]>";
+const USAGE = "usage: watch-picks.mjs <work|check|list|search <query> [--limit N]|dates <ids>|details <ids>|transcripts <ids>|fetch-subs <ids>|clean-subs|render <picks.json>|post <picks.json>|past [weeks]>";
 
 function cleanSubs(work, out) {
   const subs = path.join(work, "subs");
@@ -131,6 +131,30 @@ export async function main(argv, deps = {}) {
         fs.writeFileSync(file, JSON.stringify(rows, null, 2));
         for (const row of rows) o.out([row.id, row.durationSeconds, row.views ?? "", row.uploadDate, row.channel, row.title].join("\t"));
         o.out(`saved: ${file}`);
+        return 0;
+      }
+      case "dates": {
+        const { ids, dropped } = validIds(arg, DATES_CAP);
+        if (!ids.length) {
+          o.err("dates needs comma-separated video ids");
+          return 2;
+        }
+        const r = await o.runYtDlp(o.ytDlp, datesArgs(ids));
+        const dates = parseDates(r.stdout, ids);
+        ensureWork();
+        const file = path.join(work, "dates.json");
+        const saved = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
+        fs.writeFileSync(file, JSON.stringify({ ...saved, ...dates }, null, 2));
+        for (const id of ids) {
+          if (!dates[id]) continue;
+          const years = (o.now - new Date(`${dates[id]}T00:00:00`)) / (365.25 * 86400000);
+          o.out(`${id}\t${dates[id]}\t${years.toFixed(1)} years`);
+        }
+        o.out(`missing: ${ids.filter((id) => !dates[id]).join(",") || "none"}${dropped ? ` (${dropped} over the cap of ${DATES_CAP} dropped)` : ""}`);
+        if (r.code !== 0) {
+          o.out(`yt-dlp exited ${r.code}: ${r.stderr.split("\n").filter(Boolean).pop() || "no output"}`);
+          return 1;
+        }
         return 0;
       }
       case "details": {

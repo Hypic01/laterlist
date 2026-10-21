@@ -309,6 +309,46 @@ describe("watch-picks CLI", () => {
     expect(out.join("\n")).toMatch(/yt-dlp exited 1: ERROR: HTTP Error 429/);
   });
 
+  it("dates prints real upload dates with age, saves them, and caps the call at 20", async () => {
+    const calls = [];
+    deps.ytDlp = "/fake/yt-dlp";
+    deps.runYtDlp = async (bin, args) => {
+      calls.push({ bin, args });
+      return { code: 0, stderr: "", stdout: "Deprecated Feature: x\nYW7a9jdhPGw\t20250625\njnzh5QTKbsw\t20200916\n" };
+    };
+    expect(await main(["dates", "YW7a9jdhPGw,jnzh5QTKbsw"], deps)).toBe(0);
+    expect(calls[0].bin).toBe("/fake/yt-dlp");
+    expect(calls[0].args.slice(0, calls[0].args.indexOf("--"))).toEqual([
+      "--ignore-config", "--no-playlist", "--skip-download", "--sleep-requests", "1", "--print", "%(id)s\t%(upload_date)s",
+    ]);
+    expect(out).toContain("YW7a9jdhPGw\t2025-06-25\t1.3 years");
+    expect(out).toContain("jnzh5QTKbsw\t2020-09-16\t6.1 years");
+    expect(out).toContain("missing: none");
+    expect(JSON.parse(fs.readFileSync(path.join(work(), "dates.json"), "utf8"))).toEqual({
+      YW7a9jdhPGw: "2025-06-25", jnzh5QTKbsw: "2020-09-16",
+    });
+    const many = Array.from({ length: 25 }, (_, i) => vid(i)).join(",");
+    expect(await main(["dates", many], deps)).toBe(0);
+    expect(calls[1].args.slice(calls[1].args.indexOf("--") + 1)).toHaveLength(20);
+    expect(out.join("\n")).toMatch(/5 over the cap of 20 dropped/);
+    expect(JSON.parse(fs.readFileSync(path.join(work(), "dates.json"), "utf8"))).toHaveProperty("jnzh5QTKbsw", "2020-09-16");
+  });
+
+  it("dates rejects non-ids and still prints what it got when yt-dlp fails part way", async () => {
+    let called = false;
+    deps.runYtDlp = async () => {
+      called = true;
+      return { code: 1, stderr: "ERROR: [youtube] bbbbbbbbbbb: Video unavailable\nERROR: HTTP Error 429: Too Many Requests", stdout: "aaaaaaaaaaa\t20240102\n" };
+    };
+    expect(await main(["dates", "--exec=rm"], deps)).toBe(2);
+    expect(err[0]).toMatch(/dates needs comma-separated video ids/);
+    expect(called).toBe(false);
+    expect(await main(["dates", "aaaaaaaaaaa,bbbbbbbbbbb"], deps)).toBe(1);
+    expect(out).toContain("aaaaaaaaaaa\t2024-01-02\t2.8 years");
+    expect(out).toContain("missing: bbbbbbbbbbb");
+    expect(out.join("\n")).toMatch(/yt-dlp exited 1: ERROR: HTTP Error 429/);
+  });
+
   it("check fails when other users' rows are visible", async () => {
     await seedVideo(pg, { id: vid(1) });
     await seedVideo(pg, { id: vid(2), user: U2 });
